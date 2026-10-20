@@ -19,3 +19,7 @@ pub use ta_lib_sys as sys;
 pub use types::{
     CandleSettingType, Compatibility, FuncUnstId, MAType, MovingAverageType, OutRange, RangeType,
 };
+
+#[cfg(doctest)]
+#[doc = include_str!("../../../README.md")]
+mod readme_doctests {}

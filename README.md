@@ -136,10 +136,11 @@ fn main() -> Result<(), Error> {
 }
 ```
 
-Every output slice must have at least as many elements as the input slice, even
-when the final output count is smaller. Only `output[..range.count]` contains
-calculated values. `OutRange.begin` is the corresponding input offset and
-`OutRange.count` is the number of written elements.
+Every output slice must have at least `input.len().saturating_sub(lookback)`
+elements (or `input.len()` for a reusable upper bound). Only
+`output[..range.count]` contains calculated values. `OutRange.begin` is the
+corresponding input offset and `OutRange.count` is the number of written
+elements.
 
 ## Lookback and chart display shift
 
@@ -250,9 +251,9 @@ outputs with `set_output_real` or `set_output_integer`. Match these methods to
 the function's parameter metadata.
 
 `call(start, end)` uses **inclusive** input indices. Inputs must cover `end`, and
-output buffers must hold at least `end - start + 1` elements. Read only the
-returned output count after dropping the holder. A holder may be called again
-while its buffers remain bound.
+output buffers must hold at least `(end + 1).saturating_sub(start.max(lookback))`
+elements. Read only the returned output count after dropping the holder. A holder
+may be called again while its buffers remain bound.
 
 All fallible wrappers return `ta_lib::Error`, including native return-code
 information for errors without a dedicated Rust variant. Raw FFI remains

@@ -76,29 +76,59 @@ pub const TA_FUNC_UNST_COUNT: usize = 37;
 pub const TA_MATYPE_MIN: c_uint = 0;
 pub const TA_MATYPE_MAX: c_uint = 15;
 
-#[repr(u32)]
+/// Native return code, including internal-error identifiers and unknown future values.
+#[repr(transparent)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub enum TA_RetCode {
-    TA_SUCCESS = 0,
-    TA_LIB_NOT_INITIALIZE = 1,
-    TA_BAD_PARAM = 2,
-    TA_ALLOC_ERR = 3,
-    TA_GROUP_NOT_FOUND = 4,
-    TA_FUNC_NOT_FOUND = 5,
-    TA_INVALID_HANDLE = 6,
-    TA_INVALID_PARAM_HOLDER = 7,
-    TA_INVALID_PARAM_HOLDER_TYPE = 8,
-    TA_INVALID_PARAM_FUNCTION = 9,
-    TA_INPUT_NOT_ALL_INITIALIZE = 10,
-    TA_OUTPUT_NOT_ALL_INITIALIZE = 11,
-    TA_OUT_OF_RANGE_START_INDEX = 12,
-    TA_OUT_OF_RANGE_END_INDEX = 13,
-    TA_INVALID_LIST_TYPE = 14,
-    TA_BAD_OBJECT = 15,
-    TA_NOT_SUPPORTED = 16,
-    TA_INSUFFICIENT_HISTORY = 17,
-    TA_INTERNAL_ERROR = 5000,
-    TA_UNKNOWN_ERR = 65535,
+pub struct TA_RetCode(pub u32);
+
+impl TA_RetCode {
+    pub const TA_SUCCESS: Self = Self(0);
+    pub const TA_LIB_NOT_INITIALIZE: Self = Self(1);
+    pub const TA_BAD_PARAM: Self = Self(2);
+    pub const TA_ALLOC_ERR: Self = Self(3);
+    pub const TA_GROUP_NOT_FOUND: Self = Self(4);
+    pub const TA_FUNC_NOT_FOUND: Self = Self(5);
+    pub const TA_INVALID_HANDLE: Self = Self(6);
+    pub const TA_INVALID_PARAM_HOLDER: Self = Self(7);
+    pub const TA_INVALID_PARAM_HOLDER_TYPE: Self = Self(8);
+    pub const TA_INVALID_PARAM_FUNCTION: Self = Self(9);
+    pub const TA_INPUT_NOT_ALL_INITIALIZE: Self = Self(10);
+    pub const TA_OUTPUT_NOT_ALL_INITIALIZE: Self = Self(11);
+    pub const TA_OUT_OF_RANGE_START_INDEX: Self = Self(12);
+    pub const TA_OUT_OF_RANGE_END_INDEX: Self = Self(13);
+    pub const TA_INVALID_LIST_TYPE: Self = Self(14);
+    pub const TA_BAD_OBJECT: Self = Self(15);
+    pub const TA_NOT_SUPPORTED: Self = Self(16);
+    pub const TA_INSUFFICIENT_HISTORY: Self = Self(17);
+    pub const TA_INTERNAL_ERROR: Self = Self(5000);
+    pub const TA_UNKNOWN_ERR: Self = Self(0xFFFF);
+
+    /// Return the unmodified native numeric code.
+    #[must_use]
+    pub const fn raw(self) -> u32 {
+        self.0
+    }
+
+    /// Construct a native internal error from its guard identifier.
+    ///
+    /// # Panics
+    /// Panics in checked-overflow builds if adding the 5000-code base overflows `u32`.
+    #[must_use]
+    pub const fn internal_error(id: u32) -> Self {
+        Self(5000 + id)
+    }
+}
+
+impl From<u32> for TA_RetCode {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<TA_RetCode> for u32 {
+    fn from(value: TA_RetCode) -> Self {
+        value.raw()
+    }
 }
 
 #[repr(u32)]
@@ -371,6 +401,74 @@ mod tests {
         assert_eq!(size_of::<TA_RealRange>(), 48);
         assert_eq!(size_of::<TA_RetCodeInfo>(), 16);
         assert_eq!(size_of::<TA_StringTable>(), 24);
+
+        assert_eq!(size_of::<TA_RetCode>(), size_of::<c_uint>());
+        assert_eq!(offset_of!(TA_RetCodeInfo, enumStr), 0);
+        assert_eq!(offset_of!(TA_RetCodeInfo, infoStr), 8);
+        assert_eq!(offset_of!(TA_ParamHolder, hiddenData), 0);
+        assert_eq!(offset_of!(TA_RealRange, min), 0);
+        assert_eq!(offset_of!(TA_RealRange, max), 8);
+        assert_eq!(offset_of!(TA_RealRange, precision), 16);
+        assert_eq!(offset_of!(TA_RealRange, suggested_start), 24);
+        assert_eq!(offset_of!(TA_RealRange, suggested_end), 32);
+        assert_eq!(offset_of!(TA_RealRange, suggested_increment), 40);
+        assert_eq!(offset_of!(TA_IntegerRange, min), 0);
+        assert_eq!(offset_of!(TA_IntegerRange, max), 4);
+        assert_eq!(offset_of!(TA_IntegerRange, suggested_start), 8);
+        assert_eq!(offset_of!(TA_IntegerRange, suggested_end), 12);
+        assert_eq!(offset_of!(TA_IntegerRange, suggested_increment), 16);
+        assert_eq!(offset_of!(TA_RealDataPair, value), 0);
+        assert_eq!(offset_of!(TA_RealDataPair, string), 8);
+        assert_eq!(offset_of!(TA_IntegerDataPair, value), 0);
+        assert_eq!(offset_of!(TA_IntegerDataPair, string), 8);
+        assert_eq!(offset_of!(TA_RealList, data), 0);
+        assert_eq!(offset_of!(TA_RealList, nbElement), 8);
+        assert_eq!(offset_of!(TA_IntegerList, data), 0);
+        assert_eq!(offset_of!(TA_IntegerList, nbElement), 8);
+        assert_eq!(offset_of!(TA_InputParameterInfo, type_), 0);
+        assert_eq!(offset_of!(TA_InputParameterInfo, paramName), 8);
+        assert_eq!(offset_of!(TA_InputParameterInfo, flags), 16);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, type_), 0);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, paramName), 8);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, flags), 16);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, displayName), 24);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, dataSet), 32);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, defaultValue), 40);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, hint), 48);
+        assert_eq!(offset_of!(TA_OptInputParameterInfo, helpFile), 56);
+        assert_eq!(offset_of!(TA_OutputParameterInfo, type_), 0);
+        assert_eq!(offset_of!(TA_OutputParameterInfo, paramName), 8);
+        assert_eq!(offset_of!(TA_OutputParameterInfo, flags), 16);
+        assert_eq!(offset_of!(TA_StringTable, size), 0);
+        assert_eq!(offset_of!(TA_StringTable, string), 8);
+        assert_eq!(offset_of!(TA_StringTable, hiddenData), 16);
+    }
+
+    #[test]
+    fn internal_error_code_preserves_native_diagnostics() {
+        let code = TA_RetCode::internal_error(383);
+        assert_eq!(code.raw(), 5383);
+        assert_eq!(TA_RetCode::from(u32::from(code)), code);
+        assert_eq!(TA_RetCode::from(u32::MAX).raw(), u32::MAX);
+        let mut info = TA_RetCodeInfo {
+            enumStr: core::ptr::null(),
+            infoStr: core::ptr::null(),
+        };
+        // SAFETY: the transparent code accepts every C integer value; info is a live out-pointer.
+        unsafe { TA_SetRetCodeInfo(code, &raw mut info) };
+        assert!(!info.enumStr.is_null() && !info.infoStr.is_null());
+        // SAFETY: TA_SetRetCodeInfo returns static, NUL-terminated diagnostic strings.
+        let (name, detail) = unsafe {
+            (
+                core::ffi::CStr::from_ptr(info.enumStr),
+                core::ffi::CStr::from_ptr(info.infoStr),
+            )
+        };
+        assert_eq!(name.to_bytes(), b"TA_INTERNAL_ERROR");
+        assert_eq!(
+            detail.to_bytes(),
+            b"Unexpected Internal Error - Contact TA-Lib.org"
+        );
     }
 
     #[test]

@@ -42,6 +42,35 @@ fn target_cache_dir(manifest: &Path, out_dir: &Path) -> PathBuf {
         .unwrap_or_else(|| out_dir.join("ta-lib-src"))
 }
 
+fn git_revision(source: &Path) -> String {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(source)
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .expect("read TA-Lib source revision");
+    assert!(
+        output.status.success(),
+        "failed to read TA-Lib source revision at {}",
+        source.display()
+    );
+    String::from_utf8(output.stdout)
+        .expect("TA-Lib revision is UTF-8")
+        .trim()
+        .to_owned()
+}
+
+fn verify_cached_revision(source: &Path) {
+    if source.join(".git").exists() {
+        assert_eq!(
+            git_revision(source),
+            PINNED_REV,
+            "TA-Lib cache revision mismatch at {}",
+            source.display()
+        );
+    }
+}
+
 fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
     if let Ok(configured) = env::var("TA_LIB_DIR") {
         let candidate = PathBuf::from(configured);
@@ -59,6 +88,7 @@ fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
     }
     let cache = target_cache_dir(manifest, out_dir);
     if is_source_tree(&cache) {
+        verify_cached_revision(&cache);
         return cache;
     }
     if let Some(parent) = cache.parent() {
@@ -72,30 +102,33 @@ fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
         .status()
         .expect("run git clone for TA-Lib");
     assert!(status.success(), "failed to clone TA-Lib from {REPOSITORY}");
-    let rev_out = Command::new("git")
-        .arg("-C")
-        .arg(&staging)
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .expect("read cloned TA-Lib commit");
-    let rev = String::from_utf8_lossy(&rev_out.stdout).trim().to_owned();
-    if rev != PINNED_REV {
+    if git_revision(&staging) != PINNED_REV {
         let fetch_status = Command::new("git")
             .arg("-C")
             .arg(&staging)
             .args(["fetch", "--depth", "1", "origin", PINNED_REV])
             .status()
             .expect("fetch pinned TA-Lib commit");
-        if fetch_status.success() {
-            drop(
-                Command::new("git")
-                    .arg("-C")
-                    .arg(&staging)
-                    .args(["checkout", PINNED_REV])
-                    .status(),
-            );
-        }
+        assert!(
+            fetch_status.success(),
+            "failed to fetch pinned TA-Lib commit {PINNED_REV}"
+        );
+        let checkout_status = Command::new("git")
+            .arg("-C")
+            .arg(&staging)
+            .args(["checkout", "--detach", PINNED_REV])
+            .status()
+            .expect("check out pinned TA-Lib commit");
+        assert!(
+            checkout_status.success(),
+            "failed to check out pinned TA-Lib commit {PINNED_REV}"
+        );
     }
+    assert_eq!(
+        git_revision(&staging),
+        PINNED_REV,
+        "TA-Lib clone revision mismatch"
+    );
     if let Err(err) = fs::rename(&staging, &cache) {
         assert!(
             is_source_tree(&cache),
@@ -104,6 +137,7 @@ fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
         );
         drop(fs::remove_dir_all(&staging));
     }
+    verify_cached_revision(&cache);
     cache
 }
 
@@ -203,6 +237,17 @@ fn generate_bindings(source: &Path, out_dir: &Path) {
         functions.push(sig);
     }
 
+    assert_eq!(
+        functions.len(),
+        3_122,
+        "unsupported TA-Lib ABI function count"
+    );
+    assert_eq!(
+        stream_types.len(),
+        237,
+        "unsupported TA-Lib ABI stream count"
+    );
+
     let mut out = File::create(out_dir.join("bindings.rs")).expect("create bindings.rs");
     writeln!(
         out,
@@ -245,6 +290,11 @@ fn main() {
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let source = resolve_source(&manifest, &out_dir);
+    println!(
+        "cargo:rerun-if-changed={}",
+        source.join("ABI.manifest").display()
+    );
+    generate_bindings(&source, &out_dir);
 
     let install_dir = cmake::Config::new(&source)
         .define("BUILD_SHARED_LIBS", "OFF")
@@ -282,6 +332,4 @@ fn main() {
         }
         println!("cargo:rustc-link-lib=dylib=m");
     }
-
-    generate_bindings(&source, &out_dir);
 }

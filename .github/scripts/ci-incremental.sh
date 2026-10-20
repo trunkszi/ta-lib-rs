@@ -41,7 +41,7 @@ while IFS= read -r file; do
   [ -f "$file" ] || continue
   case "$file" in
     *.rs|*.c|*.cpp|*.h|*.hpp)
-      lines="$(wc -l < "$file")"
+      lines="$(awk 'END{print NR}' "$file")"
       if [ "$lines" -gt "$max_lines" ]; then
         echo "::error file=$file::$file has $lines lines (limit is $max_lines)"
         line_violations=$((line_violations + 1))
@@ -56,10 +56,12 @@ if [ "$line_violations" -gt 0 ]; then
 fi
 
 # 2. Enforce zero async runtime dependencies across all Cargo.toml manifests.
+async_names='(tokio|futures|futures-core|futures-util|async-std|smol)'
+dependency_key="[\"']?${async_names}[\"']?"
 while IFS= read -r manifest; do
   [ -z "$manifest" ] && continue
   [ -f "$manifest" ] || continue
-  if grep -Eq '^[[:space:]]*(tokio|futures|futures-core|futures-util|async-std|smol)[[:space:]]*=' "$manifest"; then
+  if grep -Eq "^[[:space:]]*(${dependency_key}[[:space:]]*(=|\.)|[^=#]*dependencies[[:space:]]*\.[[:space:]]*${dependency_key}[[:space:]]*(=|\.)|\[[^]#]*dependencies[[:space:]]*\.[[:space:]]*${dependency_key}[[:space:]]*(\.|\]))" "$manifest"; then
     echo "::error file=$manifest::Forbidden async runtime dependency detected in $manifest"
     exit 1
   fi
@@ -78,6 +80,9 @@ declare -A affected_map=()
 while IFS= read -r file; do
   [ -z "$file" ] && continue
   case "$file" in
+    README.md)
+      affected_map["ta-lib"]=1
+      ;;
     *.md|.scratch/*|docs/*|GLOSSARY.md|AGENTS.md|.gitignore)
       ;;
     Cargo.toml|Cargo.lock|rust-toolchain.toml|rustfmt.toml|.github/*)
@@ -153,6 +158,8 @@ for pkg in "${selected_pkgs[@]}"; do
   else
     cargo test -p "$pkg"
   fi
+  echo "==> [doctest] package: $pkg"
+  cargo test --doc -p "$pkg"
 done
 
 echo "==> Incremental CI succeeded for: ${selected_pkgs[*]}"

@@ -78,8 +78,37 @@ pub const TA_MATYPE_MAX: c_uint = 15;
 
 /// Native return code, including internal-error identifiers and unknown future values.
 #[repr(transparent)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct TA_RetCode(pub u32);
+
+impl core::fmt::Debug for TA_RetCode {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let name = match *self {
+            Self::TA_SUCCESS => "TA_SUCCESS",
+            Self::TA_LIB_NOT_INITIALIZE => "TA_LIB_NOT_INITIALIZE",
+            Self::TA_BAD_PARAM => "TA_BAD_PARAM",
+            Self::TA_ALLOC_ERR => "TA_ALLOC_ERR",
+            Self::TA_GROUP_NOT_FOUND => "TA_GROUP_NOT_FOUND",
+            Self::TA_FUNC_NOT_FOUND => "TA_FUNC_NOT_FOUND",
+            Self::TA_INVALID_HANDLE => "TA_INVALID_HANDLE",
+            Self::TA_INVALID_PARAM_HOLDER => "TA_INVALID_PARAM_HOLDER",
+            Self::TA_INVALID_PARAM_HOLDER_TYPE => "TA_INVALID_PARAM_HOLDER_TYPE",
+            Self::TA_INVALID_PARAM_FUNCTION => "TA_INVALID_PARAM_FUNCTION",
+            Self::TA_INPUT_NOT_ALL_INITIALIZE => "TA_INPUT_NOT_ALL_INITIALIZE",
+            Self::TA_OUTPUT_NOT_ALL_INITIALIZE => "TA_OUTPUT_NOT_ALL_INITIALIZE",
+            Self::TA_OUT_OF_RANGE_START_INDEX => "TA_OUT_OF_RANGE_START_INDEX",
+            Self::TA_OUT_OF_RANGE_END_INDEX => "TA_OUT_OF_RANGE_END_INDEX",
+            Self::TA_INVALID_LIST_TYPE => "TA_INVALID_LIST_TYPE",
+            Self::TA_BAD_OBJECT => "TA_BAD_OBJECT",
+            Self::TA_NOT_SUPPORTED => "TA_NOT_SUPPORTED",
+            Self::TA_INSUFFICIENT_HISTORY => "TA_INSUFFICIENT_HISTORY",
+            Self::TA_INTERNAL_ERROR => "TA_INTERNAL_ERROR",
+            Self::TA_UNKNOWN_ERR => "TA_UNKNOWN_ERR",
+            other => return f.debug_tuple("TA_RetCode").field(&other.0).finish(),
+        };
+        f.write_str(name)
+    }
+}
 
 impl TA_RetCode {
     pub const TA_SUCCESS: Self = Self(0);

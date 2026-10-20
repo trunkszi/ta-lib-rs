@@ -127,7 +127,7 @@ mod tests {
          [$($input:ident),+], [$($opt:expr),*], [$($out:ident: $ty:ty: $idx:tt),+], $extract:expr) => {
             #[test]
             fn $test() {
-                crate::initialize().expect("initialize TA-Lib");
+                crate::indicators::math_operators::initialize_test_runtime();
                 // Exactly representable inputs isolate precision conversion from algorithm behavior.
                 let data: Vec<f64> = (0..192).map(|i| 0.25 + (i % 19) as f64 / 64.0).collect();
                 let data32: Vec<f32> = data.iter().map(|&v| v as f32).collect();
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn analytic_transforms() {
-        crate::initialize().unwrap();
+        crate::indicators::math_operators::initialize_test_runtime();
         let input = [0.0, 0.25, 0.5, 1.0];
         let actual = sin(&input).unwrap();
         assert_eq!(actual.1, 0);

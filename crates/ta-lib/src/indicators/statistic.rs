@@ -113,7 +113,7 @@ mod tests {
          [$($input:ident),+], [$($opt:expr),*], [$($out:ident: $ty:ty: $idx:tt),+], $extract:expr) => {
             #[test]
             fn $test() {
-                crate::initialize().expect("initialize TA-Lib");
+                crate::indicators::math_operators::initialize_test_runtime();
                 // Exactly representable inputs isolate precision conversion from algorithm behavior.
                 let data: Vec<f64> = (0..192).map(|i| 0.25 + (i % 19) as f64 / 64.0).collect();
                 let data32: Vec<f32> = data.iter().map(|&v| v as f32).collect();
@@ -200,7 +200,7 @@ mod tests {
 
     #[test]
     fn linear_fit_and_population_variance() {
-        crate::initialize().unwrap();
+        crate::indicators::math_operators::initialize_test_runtime();
         let input = [1.0, 3.0, 5.0, 7.0, 9.0];
         assert_eq!(linearreg_slope(&input, Some(3)).unwrap(), (vec![2.0; 3], 2));
         assert_eq!(linearreg(&input, Some(3)).unwrap().0, vec![5.0, 7.0, 9.0]);

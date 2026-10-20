@@ -67,7 +67,7 @@ mod tests {
          [$($input:ident),+], [$($opt:expr),*], [$($out:ident: $ty:ty: $idx:tt),+], $extract:expr) => {
             #[test]
             fn $test() {
-                crate::initialize().expect("initialize TA-Lib");
+                crate::indicators::math_operators::initialize_test_runtime();
                 // Exactly representable inputs isolate precision conversion from algorithm behavior.
                 let data: Vec<f64> = (0..192).map(|i| 0.25 + (i % 19) as f64 / 64.0).collect();
                 let data32: Vec<f32> = data.iter().map(|&v| v as f32).collect();
@@ -145,7 +145,7 @@ mod tests {
 
     #[test]
     fn ohlc_prices_preserve_distinct_inputs() {
-        crate::initialize().unwrap();
+        crate::indicators::math_operators::initialize_test_runtime();
         let open = [10.0, 12.0, 14.0];
         let high = [14.0, 16.0, 18.0];
         let low = [8.0, 10.0, 12.0];

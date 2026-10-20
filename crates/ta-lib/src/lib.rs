@@ -6,6 +6,11 @@ pub mod indicators;
 pub mod runtime;
 pub mod types;
 
+pub use abstract_api::{
+    FuncHandle, FuncInfo, InputParameterInfo, InputParameterType, IntegerRange, NamedInteger,
+    NamedReal, OptInputDataSet, OptInputParameterInfo, OptInputParameterType, OutputParameterInfo,
+    OutputParameterType, ParamHolder, RealRange,
+};
 pub use error::{Error, RetCodeInfo, check_ret_code, ret_code_info};
 pub use indicators::*;
 pub use runtime::*;

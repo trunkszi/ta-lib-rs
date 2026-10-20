@@ -8,10 +8,18 @@ use crate::model::{IndicatorList, IndicatorSpec, OptKind, OutKind};
 
 pub fn expand_all(list: &IndicatorList) -> Result<TokenStream> {
     let mut out = TokenStream::new();
-    for item in &list.items {
-        out.extend(expand_one(item)?);
+    for spec in &list.items {
+        let metadata = emit_metadata(spec);
+        let f64_batch = emit_batch_f64(spec);
+        let f32_batch = emit_batch_f32(spec);
+        let stream = emit_stream(spec);
+        out.extend(quote!(#metadata #f64_batch #f32_batch #stream));
     }
     Ok(out)
+}
+
+fn c_name(spec: &IndicatorSpec, suffix: &str) -> Ident {
+    Ident::new(&format!("TA_{}{suffix}", spec.c_ident), Span::call_site())
 }
 
 fn opt_rust_type(kind: OptKind) -> TokenStream {
@@ -24,18 +32,12 @@ fn opt_rust_type(kind: OptKind) -> TokenStream {
 
 fn opt_c_expr(name: &Ident, kind: OptKind) -> TokenStream {
     match kind {
-        OptKind::Int => quote! {
-            match #name {
-                Some(v) => i32::try_from(v).map_err(|_| crate::error::Error::BadParam)?,
-                None => ta_lib_sys::TA_INTEGER_DEFAULT,
-            }
-        },
-        OptKind::Real => quote! {
-            #name.unwrap_or(ta_lib_sys::TA_REAL_DEFAULT)
-        },
-        OptKind::MaType => quote! {
-            #name.unwrap_or(crate::types::MAType::Default).into()
-        },
+        OptKind::Int => quote! { match #name {
+            Some(v) => i32::try_from(v).map_err(|_| crate::error::Error::BadParam)?,
+            None => ta_lib_sys::TA_INTEGER_DEFAULT,
+        } },
+        OptKind::Real => quote!(#name.unwrap_or(ta_lib_sys::TA_REAL_DEFAULT)),
+        OptKind::MaType => quote!(#name.unwrap_or(crate::types::MAType::Default).into()),
     }
 }
 
@@ -46,319 +48,217 @@ fn out_elem_type(kind: OutKind) -> TokenStream {
     }
 }
 
-fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
-    let attrs = &spec.attrs;
-    let fn_name = &spec.fn_name;
-    let fn_into = format_ident!("{}_into", fn_name);
-    let fn_f32 = format_ident!("{}_f32", fn_name);
-    let fn_f32_into = format_ident!("{}_f32_into", fn_name);
-    let fn_lookback = format_ident!("{}_lookback", fn_name);
-    let fn_display_shift = format_ident!("{}_display_shift", fn_name);
-    let stream_ident = &spec.stream_ident;
+struct Parameters<'a> {
+    in_names: &'a [Ident],
+    opt_params_decl: Vec<TokenStream>,
+    opt_names: Vec<&'a Ident>,
+    opt_c_lets: Vec<TokenStream>,
+    opt_c_vars: Vec<Ident>,
+    out_names: Vec<&'a Ident>,
+    out_slice_params: Vec<TokenStream>,
+    out_types: Vec<TokenStream>,
+}
 
-    let c_batch = Ident::new(&format!("TA_{}", spec.c_ident), Span::call_site());
-    let c_batch_s = Ident::new(&format!("TA_S_{}", spec.c_ident), Span::call_site());
-    let c_lookback = Ident::new(&format!("TA_{}_Lookback", spec.c_ident), Span::call_site());
-    let c_display_shift = Ident::new(
-        &format!("TA_{}_DisplayShift", spec.c_ident),
-        Span::call_site(),
-    );
-    let c_stream_ty = Ident::new(&format!("TA_{}_Stream", spec.c_ident), Span::call_site());
-    let c_open = Ident::new(&format!("TA_{}_Open", spec.c_ident), Span::call_site());
-    let c_open_and_fill = Ident::new(
-        &format!("TA_{}_OpenAndFill", spec.c_ident),
-        Span::call_site(),
-    );
-    let c_update = Ident::new(&format!("TA_{}_Update", spec.c_ident), Span::call_site());
-    let c_peek = Ident::new(&format!("TA_{}_Peek", spec.c_ident), Span::call_site());
-    let c_value = Ident::new(&format!("TA_{}_Value", spec.c_ident), Span::call_site());
-    let c_out_range = Ident::new(&format!("TA_{}_OutRange", spec.c_ident), Span::call_site());
-    let c_advance = Ident::new(&format!("TA_{}_Advance", spec.c_ident), Span::call_site());
-    let c_clone = Ident::new(&format!("TA_{}_Clone", spec.c_ident), Span::call_site());
-    let c_close = Ident::new(&format!("TA_{}_Close", spec.c_ident), Span::call_site());
+impl<'a> Parameters<'a> {
+    fn new(spec: &'a IndicatorSpec) -> Self {
+        Self {
+            in_names: &spec.inputs,
+            opt_params_decl: spec
+                .opts
+                .iter()
+                .map(|o| {
+                    let name = &o.name;
+                    let ty = opt_rust_type(o.kind);
+                    quote!(#name: #ty)
+                })
+                .collect(),
+            opt_names: spec.opts.iter().map(|o| &o.name).collect(),
+            opt_c_lets: spec
+                .opts
+                .iter()
+                .map(|o| {
+                    let name = format_ident!("c_opt_{}", o.name);
+                    let value = opt_c_expr(&o.name, o.kind);
+                    quote!(let #name = #value;)
+                })
+                .collect(),
+            opt_c_vars: spec
+                .opts
+                .iter()
+                .map(|o| format_ident!("c_opt_{}", o.name))
+                .collect(),
+            out_names: spec.outs.iter().map(|o| &o.name).collect(),
+            out_slice_params: spec
+                .outs
+                .iter()
+                .map(|o| {
+                    let name = &o.name;
+                    let ty = out_elem_type(o.kind);
+                    quote!(#name: &mut [#ty])
+                })
+                .collect(),
+            out_types: spec.outs.iter().map(|o| out_elem_type(o.kind)).collect(),
+        }
+    }
+}
 
-    let in_names = &spec.inputs;
-    let first_in = &in_names[0];
-    let rest_ins = &in_names[1..];
-
-    let opt_params_decl: Vec<TokenStream> = spec
-        .opts
-        .iter()
-        .map(|o| {
-            let n = &o.name;
-            let ty = opt_rust_type(o.kind);
-            quote!(#n: #ty)
-        })
-        .collect();
-    let opt_names: Vec<&Ident> = spec.opts.iter().map(|o| &o.name).collect();
-    let opt_c_lets: Vec<TokenStream> = spec
-        .opts
-        .iter()
-        .map(|o| {
-            let c_var = format_ident!("c_opt_{}", o.name);
-            let expr = opt_c_expr(&o.name, o.kind);
-            quote!(let #c_var = #expr;)
-        })
-        .collect();
-    let opt_c_vars: Vec<Ident> = spec
-        .opts
-        .iter()
-        .map(|o| format_ident!("c_opt_{}", o.name))
-        .collect();
-
-    let out_names: Vec<&Ident> = spec.outs.iter().map(|o| &o.name).collect();
-    let out_types: Vec<TokenStream> = spec.outs.iter().map(|o| out_elem_type(o.kind)).collect();
-    let out_slice_params: Vec<TokenStream> = spec
-        .outs
-        .iter()
-        .map(|o| {
-            let n = &o.name;
-            let ty = out_elem_type(o.kind);
-            quote!(#n: &mut [#ty])
-        })
-        .collect();
-    let out_vec_types: Vec<TokenStream> = out_types.iter().map(|t| quote!(Vec<#t>)).collect();
-    let batch_ret_ty = if out_vec_types.len() == 1 {
-        let t0 = &out_vec_types[0];
-        quote!((#t0, usize))
-    } else {
-        quote!((#(#out_vec_types,)* usize))
-    };
-    let stream_val_ty = if out_types.len() == 1 {
-        let t0 = &out_types[0];
-        quote!(#t0)
-    } else {
-        quote!((#(#out_types),*))
-    };
-    let stream_val_init: Vec<TokenStream> = spec
-        .outs
-        .iter()
-        .map(|o| {
-            let n = &o.name;
-            match o.kind {
-                OutKind::F64 => quote!(let mut #n = 0.0_f64;),
-                OutKind::I32 => quote!(let mut #n = 0_i32;),
-            }
-        })
-        .collect();
-    let stream_val_tuple = if out_names.len() == 1 {
-        let n0 = out_names[0];
-        quote!(#n0)
-    } else {
-        quote!((#(#out_names),*))
-    };
-
-    let vec_allocs: Vec<TokenStream> = spec
-        .outs
-        .iter()
-        .map(|o| {
-            let n = &o.name;
-            let ty = out_elem_type(o.kind);
-            let zero = match o.kind {
-                OutKind::F64 => quote!(0.0_f64),
-                OutKind::I32 => quote!(0_i32),
-            };
-            quote!(let mut #n: Vec<#ty> = vec![#zero; #first_in.len()];)
-        })
-        .collect();
-    let vec_truncates: Vec<TokenStream> = out_names
-        .iter()
-        .map(|n| quote!(#n.truncate(range.count);))
-        .collect();
-    let batch_ok_expr = if out_names.len() == 1 {
-        let n0 = out_names[0];
-        quote!(Ok((#n0, range.begin)))
-    } else {
-        quote!(Ok((#(#out_names,)* range.begin)))
-    };
-
-    Ok(quote! {
-        /// Compute the lookback period (warmup bar count) for this indicator.
-        ///
+fn emit_metadata(spec: &IndicatorSpec) -> TokenStream {
+    let Parameters {
+        opt_params_decl,
+        opt_c_lets,
+        opt_c_vars,
+        ..
+    } = Parameters::new(spec);
+    let fn_lookback = format_ident!("{}_lookback", spec.fn_name);
+    let fn_display_shift = format_ident!("{}_display_shift", spec.fn_name);
+    let c_lookback = c_name(spec, "_Lookback");
+    let c_display_shift = c_name(spec, "_DisplayShift");
+    quote! {
+        /// Return the warmup bar count for the configured indicator.
         /// # Errors
-        ///
-        /// Returns [`crate::error::Error::BadParam`] if any optional parameter is out of range.
+        /// Returns `BadParam` for invalid parameters or a negative native lookback.
         pub fn #fn_lookback(#(#opt_params_decl),*) -> Result<usize, crate::error::Error> {
             #(#opt_c_lets)*
-            // SAFETY: Calling pure C lookback function with validated scalar parameters.
+            // SAFETY: The native lookback accepts these scalar parameters.
             let lb = unsafe { ta_lib_sys::#c_lookback(#(#opt_c_vars),*) };
             usize::try_from(lb).map_err(|_| crate::error::Error::BadParam)
         }
-
-        /// Query the chart display shift for the specified `output_idx` (0-based).
-        ///
+        /// Return the chart display shift for a zero-based output index.
         /// # Errors
-        ///
-        /// Returns [`crate::error::Error::BadParam`] if any optional parameter or `output_idx` is invalid.
-        pub fn #fn_display_shift(
-            #(#opt_params_decl,)*
-            output_idx: usize,
-        ) -> Result<i32, crate::error::Error> {
+        /// Returns `BadParam` for invalid parameters or output indices.
+        pub fn #fn_display_shift(#(#opt_params_decl,)* output_idx: usize) -> Result<i32, crate::error::Error> {
             #(#opt_c_lets)*
-            let out_idx = i32::try_from(output_idx).map_err(|_| crate::error::Error::BadParam)?;
-            // SAFETY: Calling pure C display-shift function with scalar parameters.
-            let shift = unsafe { ta_lib_sys::#c_display_shift(#(#opt_c_vars,)* out_idx) };
-            if shift == ta_lib_sys::TA_INTEGER_DEFAULT {
-                return Err(crate::error::Error::BadParam);
-            }
+            let index = i32::try_from(output_idx).map_err(|_| crate::error::Error::BadParam)?;
+            // SAFETY: The native metadata query accepts scalar parameters.
+            let shift = unsafe { ta_lib_sys::#c_display_shift(#(#opt_c_vars,)* index) };
+            if shift == ta_lib_sys::TA_INTEGER_DEFAULT { return Err(crate::error::Error::BadParam); }
             Ok(shift)
         }
+    }
+}
 
-        /// Compute the indicator into caller-provided mutable output slices without heap allocation.
-        ///
+fn emit_batch_f64(spec: &IndicatorSpec) -> TokenStream {
+    emit_batch(spec, false)
+}
+fn emit_batch_f32(spec: &IndicatorSpec) -> TokenStream {
+    emit_batch(spec, true)
+}
+
+fn emit_batch(spec: &IndicatorSpec, single: bool) -> TokenStream {
+    let Parameters {
+        in_names,
+        opt_params_decl,
+        opt_names,
+        opt_c_lets,
+        opt_c_vars,
+        out_names,
+        out_slice_params,
+        out_types,
+    } = Parameters::new(spec);
+    let first_in = &in_names[0];
+    let rest_ins = &in_names[1..];
+    let fn_name = if single {
+        format_ident!("{}_f32", spec.fn_name)
+    } else {
+        spec.fn_name.clone()
+    };
+    let fn_into = format_ident!("{}_into", fn_name);
+    let fn_lookback = format_ident!("{}_lookback", spec.fn_name);
+    let c_batch = if single {
+        format_ident!("TA_S_{}", spec.c_ident)
+    } else {
+        c_name(spec, "")
+    };
+    let input_type = if single { quote!(f32) } else { quote!(f64) };
+    let attrs = &spec.attrs;
+    quote! {
+        /// Calculate into caller-owned buffers without Rust output allocation.
+        /// Each output needs `input.len().saturating_sub(lookback)` elements.
         /// # Errors
-        ///
-        /// Returns an error if input slices are empty, input slice lengths do not match,
-        /// output buffers are smaller than the input length, or the underlying TA-Lib function fails.
+        /// Returns an error for empty/mismatched inputs, invalid options, short outputs or native failures.
         #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-        pub fn #fn_into(
-            #(#in_names: &[f64],)*
-            #(#opt_params_decl,)*
-            #(#out_slice_params,)*
-        ) -> Result<crate::types::OutRange, crate::error::Error> {
+        pub fn #fn_into(#(#in_names: &[#input_type],)* #(#opt_params_decl,)* #(#out_slice_params,)*)
+            -> Result<crate::types::OutRange, crate::error::Error> {
             let len = #first_in.len();
-            if len == 0 {
-                return Err(crate::error::Error::EmptyInput);
-            }
-            #(
-                if #rest_ins.len() != len {
-                    return Err(crate::error::Error::MismatchedInputLength {
-                        expected: len,
-                        actual: #rest_ins.len(),
-                    });
-                }
-            )*
-            #(
-                if #out_names.len() < len {
-                    return Err(crate::error::Error::OutputBufferTooSmall {
-                        required: len,
-                        actual: #out_names.len(),
-                    });
-                }
-            )*
+            if len == 0 { return Err(crate::error::Error::EmptyInput); }
+            #(if #rest_ins.len() != len {
+                return Err(crate::error::Error::MismatchedInputLength { expected: len, actual: #rest_ins.len() });
+            })*
+            let lb = #fn_lookback(#(#opt_names),*)?;
+            let required = len.saturating_sub(lb);
+            #(if #out_names.len() < required {
+                return Err(crate::error::Error::OutputBufferTooSmall { required, actual: #out_names.len() });
+            })*
             #(#opt_c_lets)*
-            let end_idx = i32::try_from(len - 1).map_err(|_| crate::error::Error::BadParam)?;
-            let mut out_begin: i32 = 0;
-            let mut out_count: i32 = 0;
-            // SAFETY: All input and output slices are verified to have at least `len` elements.
-            let ret_code = unsafe {
-                ta_lib_sys::#c_batch(
-                    0,
-                    end_idx,
-                    #(#in_names.as_ptr(),)*
-                    #(#opt_c_vars,)*
-                    &raw mut out_begin,
-                    &raw mut out_count,
-                    #(#out_names.as_mut_ptr(),)*
-                )
-            };
-            crate::error::check_ret_code(ret_code)?;
+            let end = i32::try_from(len - 1).map_err(|_| crate::error::Error::BadParam)?;
+            let (mut begin, mut count) = (0_i32, 0_i32);
+            // SAFETY: Inputs cover the range, outputs cover its maximum lookback-adjusted size.
+            // Empty output slices supply non-null dangling pointers when no output is possible.
+            let rc = unsafe { ta_lib_sys::#c_batch(0, end, #(#in_names.as_ptr(),)* #(#opt_c_vars,)*
+                &raw mut begin, &raw mut count, #(#out_names.as_mut_ptr(),)*) };
+            crate::error::check_ret_code(rc)?;
             Ok(crate::types::OutRange {
-                begin: usize::try_from(out_begin).unwrap_or(0),
-                count: usize::try_from(out_count).unwrap_or(0),
+                begin: usize::try_from(begin).map_err(|_| crate::error::Error::BadParam)?,
+                count: usize::try_from(count).map_err(|_| crate::error::Error::BadParam)?,
             })
         }
-
         #(#attrs)*
-        ///
         /// # Errors
-        ///
-        /// Returns an error if input slices are empty, mismatched, or parameters are out of range.
+        /// Returns an error for empty/mismatched inputs, invalid options or native failures.
         #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-        pub fn #fn_name(
-            #(#in_names: &[f64],)*
-            #(#opt_params_decl,)*
-        ) -> Result<#batch_ret_ty, crate::error::Error> {
-            if #first_in.is_empty() {
-                return Err(crate::error::Error::EmptyInput);
-            }
-            #(#vec_allocs)*
-            let range = #fn_into(
-                #(#in_names,)*
-                #(#opt_names,)*
-                #(&mut #out_names,)*
-            )?;
-            #(#vec_truncates)*
-            #batch_ok_expr
+        pub fn #fn_name(#(#in_names: &[#input_type],)* #(#opt_params_decl,)*)
+            -> Result<(#(Vec<#out_types>,)* usize), crate::error::Error> {
+            #(let mut #out_names: Vec<#out_types> = vec![Default::default(); #first_in.len()];)*
+            let range = #fn_into(#(#in_names,)* #(#opt_names,)* #(&mut #out_names,)*)?;
+            #(#out_names.truncate(range.count);)*
+            Ok((#(#out_names,)* range.begin))
         }
+    }
+}
 
-        /// Compute the indicator over single-precision (`f32`) inputs into caller-provided output slices.
-        ///
-        /// # Errors
-        ///
-        /// Returns an error if input slices are empty, mismatched, output slices are too small, or parameters are invalid.
-        #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-        pub fn #fn_f32_into(
-            #(#in_names: &[f32],)*
-            #(#opt_params_decl,)*
-            #(#out_slice_params,)*
-        ) -> Result<crate::types::OutRange, crate::error::Error> {
-            let len = #first_in.len();
-            if len == 0 {
-                return Err(crate::error::Error::EmptyInput);
-            }
-            #(
-                if #rest_ins.len() != len {
-                    return Err(crate::error::Error::MismatchedInputLength {
-                        expected: len,
-                        actual: #rest_ins.len(),
-                    });
-                }
-            )*
-            #(
-                if #out_names.len() < len {
-                    return Err(crate::error::Error::OutputBufferTooSmall {
-                        required: len,
-                        actual: #out_names.len(),
-                    });
-                }
-            )*
-            #(#opt_c_lets)*
-            let end_idx = i32::try_from(len - 1).map_err(|_| crate::error::Error::BadParam)?;
-            let mut out_begin: i32 = 0;
-            let mut out_count: i32 = 0;
-            // SAFETY: All f32 input and output slices have at least `len` elements.
-            let ret_code = unsafe {
-                ta_lib_sys::#c_batch_s(
-                    0,
-                    end_idx,
-                    #(#in_names.as_ptr(),)*
-                    #(#opt_c_vars,)*
-                    &raw mut out_begin,
-                    &raw mut out_count,
-                    #(#out_names.as_mut_ptr(),)*
-                )
-            };
-            crate::error::check_ret_code(ret_code)?;
-            Ok(crate::types::OutRange {
-                begin: usize::try_from(out_begin).unwrap_or(0),
-                count: usize::try_from(out_count).unwrap_or(0),
-            })
-        }
-
-        /// Compute the indicator over single-precision (`f32`) inputs, returning allocated output vectors.
-        ///
-        /// # Errors
-        ///
-        /// Returns an error if input slices are empty, mismatched, or parameters are invalid.
-        #[allow(clippy::too_many_arguments, clippy::type_complexity)]
-        pub fn #fn_f32(
-            #(#in_names: &[f32],)*
-            #(#opt_params_decl,)*
-        ) -> Result<#batch_ret_ty, crate::error::Error> {
-            if #first_in.is_empty() {
-                return Err(crate::error::Error::EmptyInput);
-            }
-            #(#vec_allocs)*
-            let range = #fn_f32_into(
-                #(#in_names,)*
-                #(#opt_names,)*
-                #(&mut #out_names,)*
-            )?;
-            #(#vec_truncates)*
-            #batch_ok_expr
-        }
-
+fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
+    let Parameters {
+        in_names,
+        opt_params_decl,
+        opt_names,
+        opt_c_lets,
+        opt_c_vars,
+        out_names,
+        out_slice_params,
+        out_types,
+    } = Parameters::new(spec);
+    let first_in = &in_names[0];
+    let rest_ins = &in_names[1..];
+    let stream_ident = &spec.stream_ident;
+    let fn_lookback = format_ident!("{}_lookback", spec.fn_name);
+    let c_stream_ty = c_name(spec, "_Stream");
+    let c_open = c_name(spec, "_Open");
+    let c_open_and_fill = c_name(spec, "_OpenAndFill");
+    let c_update = c_name(spec, "_Update");
+    let c_peek = c_name(spec, "_Peek");
+    let c_value = c_name(spec, "_Value");
+    let c_out_range = c_name(spec, "_OutRange");
+    let c_advance = c_name(spec, "_Advance");
+    let c_clone = c_name(spec, "_Clone");
+    let c_close = c_name(spec, "_Close");
+    let stream_val_ty = if out_types.len() == 1 {
+        let t = &out_types[0];
+        quote!(#t)
+    } else {
+        quote!((#(#out_types),*))
+    };
+    let stream_val_tuple = if out_names.len() == 1 {
+        let n = out_names[0];
+        quote!(#n)
+    } else {
+        quote!((#(#out_names),*))
+    };
+    let stream_val_init: Vec<_> = out_names
+        .iter()
+        .zip(&out_types)
+        .map(|(n, t)| quote!(let mut #n: #t = Default::default();))
+        .collect();
+    quote! {
         /// RAII streaming state machine for incremental bar-by-bar calculation.
         #[derive(Debug)]
         pub struct #stream_ident {
@@ -414,7 +314,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
             ///
             /// # Errors
             ///
-            /// Returns an error if inputs are empty, mismatched, output buffers are too small, or parameters are invalid.
+            /// Returns an error if inputs are empty, mismatched, output buffers are too small, history is insufficient, or parameters are invalid.
             #[allow(clippy::too_many_arguments, clippy::type_complexity)]
             pub fn open_and_fill(
                 #(#in_names: &[f64],)*
@@ -433,10 +333,13 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
                         });
                     }
                 )*
+                let lb = #fn_lookback(#(#opt_names),*)?;
+                if len <= lb { return Err(crate::error::Error::InsufficientHistory); }
+                let required = len - lb;
                 #(
-                    if #out_names.len() < len {
+                    if #out_names.len() < required {
                         return Err(crate::error::Error::OutputBufferTooSmall {
-                            required: len,
+                            required,
                             actual: #out_names.len(),
                         });
                     }
@@ -446,7 +349,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
                 let mut raw: *mut ta_lib_sys::#c_stream_ty = core::ptr::null_mut();
                 let mut out_begin: i32 = 0;
                 let mut out_count: i32 = 0;
-                // SAFETY: Input and output slices are verified to hold at least `len` elements.
+                // SAFETY: Inputs cover the history; outputs hold its lookback-adjusted count.
                 let ret_code = unsafe {
                     ta_lib_sys::#c_open_and_fill(
                         &raw mut raw,
@@ -460,11 +363,12 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
                 };
                 crate::error::check_ret_code(ret_code)?;
                 let ptr = core::ptr::NonNull::new(raw).ok_or(crate::error::Error::AllocErr)?;
+                let stream = Self { ptr };
                 Ok((
-                    Self { ptr },
+                    stream,
                     crate::types::OutRange {
-                        begin: usize::try_from(out_begin).unwrap_or(0),
-                        count: usize::try_from(out_count).unwrap_or(0),
+                        begin: usize::try_from(out_begin).map_err(|_| crate::error::Error::BadParam)?,
+                        count: usize::try_from(out_count).map_err(|_| crate::error::Error::BadParam)?,
                     },
                 ))
             }
@@ -543,12 +447,14 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
                 };
                 crate::error::check_ret_code(ret_code)?;
                 Ok(crate::types::OutRange {
-                    begin: usize::try_from(out_begin).unwrap_or(0),
-                    count: usize::try_from(out_count).unwrap_or(0),
+                    begin: usize::try_from(out_begin).map_err(|_| crate::error::Error::BadParam)?,
+                    count: usize::try_from(out_count).map_err(|_| crate::error::Error::BadParam)?,
                 })
             }
 
-            /// Advance the stream state after a previous `peek` or step.
+            /// Skip one unprocessed bar via `TA_*_Advance`, incrementing `outRangeCount`.
+            ///
+            /// Recurrence state and `value()` stay unchanged. Use `update` to commit a bar.
             ///
             /// # Errors
             ///
@@ -584,5 +490,5 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
                 }
             }
         }
-    })
+    }
 }

@@ -43,6 +43,12 @@ pub fn ret_code_info(code: sys::TA_RetCode) -> RetCodeInfo {
 /// Errors returned by `ta-lib` operations.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Error {
+    /// The runtime lock was poisoned by a panic.
+    #[error("TA-Lib runtime lock is poisoned")]
+    RuntimePoisoned,
+    /// Explicit shutdown was requested while runtime guards remain alive.
+    #[error("TA-Lib runtime is retained by active guards")]
+    RuntimeInUse,
     /// Input slice is empty.
     #[error("input slice cannot be empty")]
     EmptyInput,

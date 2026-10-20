@@ -223,3 +223,34 @@ impl From<CandleSettingType> for sys::TA_CandleSettingType {
 
 /// Unstable period function identifier (`TA_FuncUnstId`).
 pub type FuncUnstId = sys::TA_FuncUnstId;
+
+impl TryFrom<sys::TA_RangeType> for RangeType {
+    type Error = crate::Error;
+    fn try_from(value: sys::TA_RangeType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            sys::TA_RangeType::TA_RangeType_RealBody => Self::RealBody,
+            sys::TA_RangeType::TA_RangeType_HighLow => Self::HighLow,
+            sys::TA_RangeType::TA_RangeType_Shadows => Self::Shadows,
+        })
+    }
+}
+
+impl TryFrom<sys::TA_CandleSettingType> for CandleSettingType {
+    type Error = crate::Error;
+    fn try_from(value: sys::TA_CandleSettingType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            sys::TA_CandleSettingType::TA_BodyLong => Self::BodyLong,
+            sys::TA_CandleSettingType::TA_BodyVeryLong => Self::BodyVeryLong,
+            sys::TA_CandleSettingType::TA_BodyShort => Self::BodyShort,
+            sys::TA_CandleSettingType::TA_BodyDoji => Self::BodyDoji,
+            sys::TA_CandleSettingType::TA_ShadowLong => Self::ShadowLong,
+            sys::TA_CandleSettingType::TA_ShadowVeryLong => Self::ShadowVeryLong,
+            sys::TA_CandleSettingType::TA_ShadowShort => Self::ShadowShort,
+            sys::TA_CandleSettingType::TA_ShadowVeryShort => Self::ShadowVeryShort,
+            sys::TA_CandleSettingType::TA_Near => Self::Near,
+            sys::TA_CandleSettingType::TA_Far => Self::Far,
+            sys::TA_CandleSettingType::TA_Equal => Self::Equal,
+            sys::TA_CandleSettingType::TA_AllCandleSettings => Self::AllCandleSettings,
+        })
+    }
+}

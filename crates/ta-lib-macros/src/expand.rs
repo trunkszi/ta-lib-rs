@@ -210,6 +210,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
         ///
         /// Returns an error if input slices are empty, input slice lengths do not match,
         /// output buffers are smaller than the input length, or the underlying TA-Lib function fails.
+        #[allow(clippy::too_many_arguments, clippy::type_complexity)]
         pub fn #fn_into(
             #(#in_names: &[f64],)*
             #(#opt_params_decl,)*
@@ -263,6 +264,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
         /// # Errors
         ///
         /// Returns an error if input slices are empty, mismatched, or parameters are out of range.
+        #[allow(clippy::too_many_arguments, clippy::type_complexity)]
         pub fn #fn_name(
             #(#in_names: &[f64],)*
             #(#opt_params_decl,)*
@@ -285,6 +287,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
         /// # Errors
         ///
         /// Returns an error if input slices are empty, mismatched, output slices are too small, or parameters are invalid.
+        #[allow(clippy::too_many_arguments, clippy::type_complexity)]
         pub fn #fn_f32_into(
             #(#in_names: &[f32],)*
             #(#opt_params_decl,)*
@@ -338,6 +341,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
         /// # Errors
         ///
         /// Returns an error if input slices are empty, mismatched, or parameters are invalid.
+        #[allow(clippy::too_many_arguments, clippy::type_complexity)]
         pub fn #fn_f32(
             #(#in_names: &[f32],)*
             #(#opt_params_decl,)*
@@ -370,6 +374,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
             /// # Errors
             ///
             /// Returns an error if inputs are empty, mismatched, insufficient history is provided, or parameters are invalid.
+            #[allow(clippy::too_many_arguments, clippy::type_complexity)]
             pub fn open(
                 #(#in_names: &[f64],)*
                 #(#opt_params_decl,)*
@@ -410,6 +415,7 @@ fn expand_one(spec: &IndicatorSpec) -> Result<TokenStream> {
             /// # Errors
             ///
             /// Returns an error if inputs are empty, mismatched, output buffers are too small, or parameters are invalid.
+            #[allow(clippy::too_many_arguments, clippy::type_complexity)]
             pub fn open_and_fill(
                 #(#in_names: &[f64],)*
                 #(#opt_params_decl,)*

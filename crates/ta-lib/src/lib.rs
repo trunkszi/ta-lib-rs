@@ -1,5 +1,4 @@
 //! High-level, safe Rust wrapper for the [TA-Lib](https://ta-lib.org/) technical analysis library.
-#![allow(unused_imports)]
 
 pub mod abstract_api;
 pub mod error;

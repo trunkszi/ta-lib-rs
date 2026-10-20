@@ -1,5 +1,4 @@
 //! Technical analysis indicators across all 10 official TA-Lib groups.
-#![allow(unused_imports)]
 
 pub mod cycle;
 pub mod math_operators;

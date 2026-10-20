@@ -12,11 +12,24 @@ a reflective Abstract API for selecting indicators at runtime.
 | [`ta-lib-macros`](crates/ta-lib-macros) | Implements `ta_indicators!`, generating typed batch, caller-buffer, metadata and RAII streaming bindings. |
 | [`ta-lib`](crates/ta-lib) | Exposes safe indicator functions, domain types, errors, runtime configuration and the Abstract API. |
 
-The indicator groups are Cycle Indicators, Math Operators, Math Transform,
-Momentum Indicators, Overlap Studies, Pattern Recognition, Price Transform,
-Statistic Functions, Volatility Indicators and Volume Indicators. Indicator
-functions and stream types are re-exported at the `ta_lib` crate root; reflective
-functions live in `ta_lib::abstract_api`.
+All 237 indicators have typed batch and streaming bindings:
+
+| Function group | Indicators |
+| --- | ---: |
+| Cycle Indicators | 8 |
+| Math Operators | 12 |
+| Math Transform | 15 |
+| Momentum Indicators | 63 |
+| Overlap Studies | 34 |
+| Pattern Recognition | 61 |
+| Price Transform | 6 |
+| Statistic Functions | 13 |
+| Volatility Indicators | 11 |
+| Volume Indicators | 14 |
+| **Total** | **237** |
+
+Indicator functions and stream types are re-exported at the `ta_lib` crate root;
+reflective functions live in `ta_lib::abstract_api`.
 
 ## Build and dependency setup
 

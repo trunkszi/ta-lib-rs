@@ -1,0 +1,14 @@
+[package]
+name = "ta-lib-sys"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Static C build and FFI bindings for the latest upstream TA-Lib"
+links = "ta_lib"
+
+[build-dependencies]
+cmake = { workspace = true }
+
+[lints]
+workspace = true

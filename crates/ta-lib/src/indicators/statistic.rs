@@ -1,0 +1,1 @@
+//! Indicator group: statistic.

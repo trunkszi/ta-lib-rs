@@ -200,7 +200,7 @@ which price components an indicator consumes.
 
 ```rust
 use ta_lib::{Error, abstract_api, initialize};
-use ta_lib::abstract_api::{FuncHandle, ParamHolder};
+use ta_lib::abstract_api::{FuncHandle, InputParameterType, ParamHolder};
 
 fn main() -> Result<(), Error> {
     initialize()?;
@@ -210,10 +210,7 @@ fn main() -> Result<(), Error> {
     let info = handle.info()?;
     assert_eq!(info.name, "SMA");
     let input_info = handle.input_parameter_info(0)?;
-    assert_eq!(
-        input_info.parameter_type,
-        abstract_api::InputParameterType::Real
-    );
+    assert_eq!(input_info.parameter_type, InputParameterType::Real);
 
     let close = [1.0, 2.0, 3.0, 4.0, 5.0];
     let mut output = [0.0; 5];

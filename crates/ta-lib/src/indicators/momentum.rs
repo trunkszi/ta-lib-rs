@@ -494,7 +494,7 @@ mod tests {
     use crate::MAType;
 
     fn bars() -> (Vec<f64>, Vec<f64>, Vec<f64>) {
-        crate::initialize().unwrap();
+        crate::indicators::test_support::initialize_test_runtime();
         let close: Vec<_> = (0..100).map(|i| 100.0 + f64::from(i)).collect();
         let high = close.iter().map(|v| v + 2.0).collect();
         let low = close.iter().map(|v| v - 2.0).collect();

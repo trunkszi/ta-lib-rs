@@ -7,7 +7,7 @@ use std::{
     sync::{Mutex, MutexGuard},
 };
 
-use sys::TA_RetCode::TA_SUCCESS;
+const TA_SUCCESS: sys::TA_RetCode = sys::TA_RetCode::TA_SUCCESS;
 use ta_lib::{self as ta, CandleSettingType as Candle, Compatibility, RangeType, sys};
 
 static RUNTIME: Mutex<()> = Mutex::new(());
@@ -394,4 +394,36 @@ fn abstract_abi_allocates_and_inspects_all_237_functions() {
     assert_eq!(functions.len(), 237);
     assert_eq!(functions.len(), sys::GENERATED_STREAM_TYPE_COUNT);
     assert!(functions.contains("SMA") && functions.contains("CDLDOJI"));
+}
+
+#[test]
+fn non_finite_batch_values_succeed_but_stream_updates_reject_them() {
+    let _runtime = RuntimeGuard::new();
+    let batch = [1.0, 2.0, f64::NAN, 4.0, 5.0];
+    let (values, begin) = ta::sma(&batch, Some(3)).expect("batch SMA accepts NaN");
+    assert_eq!(begin, 2);
+    assert!(values.iter().any(|value| value.is_nan()));
+
+    let infinite = [1.0, f64::INFINITY, 3.0, 4.0];
+    let (values, _) = ta::sma(&infinite, Some(3)).expect("batch SMA accepts infinity");
+    assert!(values.iter().any(|value| !value.is_finite()));
+
+    let (mut stream, _) = ta::SmaStream::open(&[1.0, 2.0, 3.0, 4.0], Some(3)).expect("SMA stream");
+    assert_eq!(stream.update(f64::NAN), Err(ta::Error::BadParam));
+    assert_eq!(stream.peek(f64::INFINITY), Err(ta::Error::BadParam));
+    assert_eq!(stream.update(f64::INFINITY), Err(ta::Error::BadParam));
+    assert!(stream.value().is_ok());
+}
+
+#[test]
+fn stream_advance_extends_out_range_without_changing_value() {
+    let _runtime = RuntimeGuard::new();
+    let (mut stream, _) = ta::SmaStream::open(&[1.0, 2.0, 3.0, 4.0], Some(3)).expect("SMA stream");
+    let before_range = stream.out_range().expect("out range");
+    let before_value = stream.value().expect("value");
+    stream.advance().expect("advance");
+    let after_range = stream.out_range().expect("out range");
+    assert_eq!(after_range.begin, before_range.begin);
+    assert_eq!(after_range.count, before_range.count + 1);
+    assert_eq!(stream.value().expect("value"), before_value);
 }

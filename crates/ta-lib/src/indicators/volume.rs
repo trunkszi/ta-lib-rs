@@ -118,6 +118,13 @@ pub fn on_balance_volume(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::indicators::test_support::{
+        BeginIndex, check_indicator, close, initialize_test_runtime,
+    };
+
+    check_indicator!(obv_batch_and_stream, obv, obv_f32, obv_into, obv_f32_into, obv_lookback, obv_display_shift, ObvStream, [inreal, volume], [], [outreal: f64: 0], |v: f64| vec![v]);
+
+    check_indicator!(ad_batch_and_stream, ad, ad_f32, ad_into, ad_f32_into, ad_lookback, ad_display_shift, AdStream, [high, low, close, volume], [], [outreal: f64: 0], |v: f64| vec![v]);
 
     #[test]
     fn on_balance_volume_alias_matches_generated_function() {

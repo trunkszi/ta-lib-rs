@@ -292,6 +292,11 @@ pub fn bollinger_bands(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::indicators::test_support::{
+        BeginIndex, check_indicator, close, initialize_test_runtime,
+    };
+
+    check_indicator!(bbands_batch_and_stream, bbands, bbands_f32, bbands_into, bbands_f32_into, bbands_lookback, bbands_display_shift, BbandsStream, [inreal], [Some(5), Some(2.0), Some(2.0), Some(crate::types::MAType::Sma)], [outrealupperband: f64: 0, outrealmiddleband: f64: 1, outreallowerband: f64: 2], |v: (f64,f64,f64)| vec![v.0,v.1,v.2]);
 
     fn ramp(len: usize) -> Vec<f64> {
         (1..=len).map(|value| value as f64).collect()

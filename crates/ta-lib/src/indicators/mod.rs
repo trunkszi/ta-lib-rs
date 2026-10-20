@@ -11,6 +11,9 @@ pub mod statistic;
 pub mod volatility;
 pub mod volume;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 pub use cycle::*;
 pub use math_operators::*;
 pub use math_transform::*;

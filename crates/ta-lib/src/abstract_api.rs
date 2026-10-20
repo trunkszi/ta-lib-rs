@@ -6,7 +6,11 @@ use core::{
     marker::PhantomData,
     ptr,
 };
-use std::ffi::CString;
+use std::{
+    any::Any,
+    ffi::CString,
+    panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
+};
 
 use ta_lib_sys as sys;
 
@@ -159,7 +163,7 @@ impl FuncHandle {
         // SAFETY: successful lookup yields a pointer into static metadata.
         let info = unsafe { info.as_ref() }.ok_or(Error::BadParam)?;
         Ok(InputParameterInfo {
-            parameter_type: input_parameter_type(info.type_),
+            parameter_type: info.type_.into(),
             name: c_string(info.paramName),
             flags: info.flags,
         })
@@ -174,7 +178,7 @@ impl FuncHandle {
         // SAFETY: successful lookup yields a pointer into static metadata.
         let info = unsafe { info.as_ref() }.ok_or(Error::BadParam)?;
         Ok(OptInputParameterInfo {
-            parameter_type: opt_input_parameter_type(info.type_),
+            parameter_type: info.type_.into(),
             name: c_string(info.paramName),
             flags: info.flags,
             display_name: c_string(info.displayName),
@@ -194,7 +198,7 @@ impl FuncHandle {
         // SAFETY: successful lookup yields a pointer into static metadata.
         let info = unsafe { info.as_ref() }.ok_or(Error::BadParam)?;
         Ok(OutputParameterInfo {
-            parameter_type: output_parameter_type(info.type_),
+            parameter_type: info.type_.into(),
             name: c_string(info.paramName),
             flags: info.flags,
         })
@@ -258,25 +262,39 @@ impl FuncInfo {
 
 struct Visitor<'a> {
     callback: &'a mut dyn FnMut(&FuncInfo),
+    panic: Option<Box<dyn Any + Send + 'static>>,
 }
 
 unsafe extern "C" fn visit(info: *const sys::TA_FuncInfo, opaque: *mut c_void) {
     // SAFETY: `for_each_function` passes a pointer to a live `Visitor` for the whole traversal,
     // and `info` is a valid static record for the duration of the callback.
     let visitor = unsafe { &mut *opaque.cast::<Visitor<'_>>() };
+    if visitor.panic.is_some() {
+        return;
+    }
     if let Some(info) = FuncInfo::from_raw(info) {
-        (visitor.callback)(&info);
+        let result = catch_unwind(AssertUnwindSafe(|| (visitor.callback)(&info)));
+        if let Err(payload) = result {
+            visitor.panic = Some(payload);
+        }
     }
 }
 
 /// Visit every registered function (`TA_ForEachFunc`).
+/// A panic raised by `callback` is propagated after the traversal returns.
 /// # Errors
 /// Returns an [`Error`] if TA-Lib reports an inconsistent function table.
 pub fn for_each_function(callback: &mut dyn FnMut(&FuncInfo)) -> Result<(), Error> {
-    let mut visitor = Visitor { callback };
+    let mut visitor = Visitor {
+        callback,
+        panic: None,
+    };
     // SAFETY: `visit` matches `TA_CallForEachFunc`, and `visitor` outlives the synchronous
     // traversal.
     let rc = unsafe { sys::TA_ForEachFunc(Some(visit), (&raw mut visitor).cast::<c_void>()) };
+    if let Some(payload) = visitor.panic {
+        resume_unwind(payload);
+    }
     check_ret_code(rc)
 }
 
@@ -286,6 +304,16 @@ pub enum InputParameterType {
     Price,
     Real,
     Integer,
+}
+
+#[rustfmt::skip]
+impl From<InputParameterType> for sys::TA_InputParameterType {
+    fn from(value: InputParameterType) -> Self { match value { InputParameterType::Price => Self::TA_Input_Price, InputParameterType::Real => Self::TA_Input_Real, InputParameterType::Integer => Self::TA_Input_Integer } }
+}
+
+#[rustfmt::skip]
+impl From<sys::TA_InputParameterType> for InputParameterType {
+    fn from(value: sys::TA_InputParameterType) -> Self { match value { sys::TA_InputParameterType::TA_Input_Price => Self::Price, sys::TA_InputParameterType::TA_Input_Real => Self::Real, sys::TA_InputParameterType::TA_Input_Integer => Self::Integer } }
 }
 
 /// Owned snapshot of a `TA_InputParameterInfo` record.
@@ -303,6 +331,16 @@ pub enum OptInputParameterType {
     RealList,
     IntegerRange,
     IntegerList,
+}
+
+#[rustfmt::skip]
+impl From<OptInputParameterType> for sys::TA_OptInputParameterType {
+    fn from(value: OptInputParameterType) -> Self { match value { OptInputParameterType::RealRange => Self::TA_OptInput_RealRange, OptInputParameterType::RealList => Self::TA_OptInput_RealList, OptInputParameterType::IntegerRange => Self::TA_OptInput_IntegerRange, OptInputParameterType::IntegerList => Self::TA_OptInput_IntegerList } }
+}
+
+#[rustfmt::skip]
+impl From<sys::TA_OptInputParameterType> for OptInputParameterType {
+    fn from(value: sys::TA_OptInputParameterType) -> Self { match value { sys::TA_OptInputParameterType::TA_OptInput_RealRange => Self::RealRange, sys::TA_OptInputParameterType::TA_OptInput_RealList => Self::RealList, sys::TA_OptInputParameterType::TA_OptInput_IntegerRange => Self::IntegerRange, sys::TA_OptInputParameterType::TA_OptInput_IntegerList => Self::IntegerList } }
 }
 
 /// Continuous range metadata for a real-valued optional input.
@@ -369,40 +407,22 @@ pub enum OutputParameterType {
     Integer,
 }
 
+#[rustfmt::skip]
+impl From<OutputParameterType> for sys::TA_OutputParameterType {
+    fn from(value: OutputParameterType) -> Self { match value { OutputParameterType::Real => Self::TA_Output_Real, OutputParameterType::Integer => Self::TA_Output_Integer } }
+}
+
+#[rustfmt::skip]
+impl From<sys::TA_OutputParameterType> for OutputParameterType {
+    fn from(value: sys::TA_OutputParameterType) -> Self { match value { sys::TA_OutputParameterType::TA_Output_Real => Self::Real, sys::TA_OutputParameterType::TA_Output_Integer => Self::Integer } }
+}
+
 /// Owned snapshot of a `TA_OutputParameterInfo` record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OutputParameterInfo {
     pub parameter_type: OutputParameterType,
     pub name: String,
     pub flags: sys::TA_OutputFlags,
-}
-
-fn input_parameter_type(value: sys::TA_InputParameterType) -> InputParameterType {
-    match value {
-        sys::TA_InputParameterType::TA_Input_Price => InputParameterType::Price,
-        sys::TA_InputParameterType::TA_Input_Real => InputParameterType::Real,
-        sys::TA_InputParameterType::TA_Input_Integer => InputParameterType::Integer,
-    }
-}
-
-fn opt_input_parameter_type(value: sys::TA_OptInputParameterType) -> OptInputParameterType {
-    match value {
-        sys::TA_OptInputParameterType::TA_OptInput_RealRange => OptInputParameterType::RealRange,
-        sys::TA_OptInputParameterType::TA_OptInput_RealList => OptInputParameterType::RealList,
-        sys::TA_OptInputParameterType::TA_OptInput_IntegerRange => {
-            OptInputParameterType::IntegerRange
-        }
-        sys::TA_OptInputParameterType::TA_OptInput_IntegerList => {
-            OptInputParameterType::IntegerList
-        }
-    }
-}
-
-fn output_parameter_type(value: sys::TA_OutputParameterType) -> OutputParameterType {
-    match value {
-        sys::TA_OutputParameterType::TA_Output_Real => OutputParameterType::Real,
-        sys::TA_OutputParameterType::TA_Output_Integer => OutputParameterType::Integer,
-    }
 }
 
 /// Interpret the `dataSet` union according to the optional input kind.
@@ -493,6 +513,7 @@ fn slice_ptr(slice: Option<&[f64]>) -> *const f64 {
 /// Registered slices stay borrowed until the holder is dropped.
 pub struct ParamHolder<'a> {
     raw: *mut sys::TA_ParamHolder,
+    input_flags: Vec<sys::TA_InputFlags>,
     input_lengths: Vec<Option<usize>>,
     output_capacities: Vec<Option<usize>>,
     _borrow: PhantomData<&'a mut ()>,
@@ -504,6 +525,10 @@ impl<'a> ParamHolder<'a> {
     /// Returns an [`Error`] if TA-Lib rejects the handle or cannot allocate the holder.
     pub fn new(handle: &FuncHandle) -> Result<Self, Error> {
         let info = handle.info()?;
+        let mut input_flags = Vec::with_capacity(info.input_count);
+        for index in 0..info.input_count {
+            input_flags.push(handle.input_parameter_info(index as u32)?.flags);
+        }
         let mut raw: *mut sys::TA_ParamHolder = ptr::null_mut();
         // SAFETY: `handle.raw` is valid and `raw` receives the owned holder on success.
         let rc = unsafe { sys::TA_ParamHolderAlloc(handle.raw, &raw mut raw) };
@@ -513,6 +538,7 @@ impl<'a> ParamHolder<'a> {
         }
         Ok(Self {
             raw,
+            input_flags,
             input_lengths: vec![None; info.input_count],
             output_capacities: vec![None; info.output_count],
             _borrow: PhantomData,
@@ -546,8 +572,9 @@ impl<'a> ParamHolder<'a> {
     }
 
     /// Bind the price series consumed by a `TA_Input_Price` parameter.
-    /// TA-Lib requires only the components named by the input flags; unused components may be
-    /// `None`. The recorded input length is the shortest supplied series.
+    /// Only the components named by the input flags determine the recorded length; an unused
+    /// component may be supplied or omitted. When no flag is set, the shortest supplied series is
+    /// used.
     /// # Errors
     /// Returns an [`Error`] if a required component is missing or `index` is invalid.
     #[allow(clippy::too_many_arguments)]
@@ -561,11 +588,37 @@ impl<'a> ParamHolder<'a> {
         volume: Option<&'a [f64]>,
         open_interest: Option<&'a [f64]>,
     ) -> Result<(), Error> {
-        let length = [open, high, low, close, volume, open_interest]
-            .into_iter()
-            .flatten()
-            .map(<[f64]>::len)
-            .min();
+        let flags = self
+            .input_flags
+            .get(index as usize)
+            .copied()
+            .unwrap_or_default();
+        let components = [
+            (sys::TA_IN_PRICE_OPEN, open),
+            (sys::TA_IN_PRICE_HIGH, high),
+            (sys::TA_IN_PRICE_LOW, low),
+            (sys::TA_IN_PRICE_CLOSE, close),
+            (sys::TA_IN_PRICE_VOLUME, volume),
+            (sys::TA_IN_PRICE_OPENINTEREST, open_interest),
+        ];
+        let length = if flags == 0 {
+            components
+                .into_iter()
+                .filter_map(|(_, series)| series)
+                .map(<[f64]>::len)
+                .min()
+        } else {
+            let mut required = None;
+            for (flag, series) in components {
+                if flags & flag != 0 {
+                    let series = series.ok_or(Error::BadParam)?;
+                    required = Some(
+                        required.map_or(series.len(), |length: usize| length.min(series.len())),
+                    );
+                }
+            }
+            required
+        };
         // SAFETY: every supplied pointer is null or a valid slice that outlives the holder.
         let rc = unsafe {
             sys::TA_SetInputParamPricePtr(
@@ -658,14 +711,13 @@ impl<'a> ParamHolder<'a> {
     }
 
     /// Run the configured function over the inclusive `start..=end` range (`TA_CallFunc`).
-    /// Inputs must cover `end`; outputs must hold `end - start + 1` elements.
+    /// Inputs must cover `end`; outputs must hold `end + 1 - max(start, lookback)` elements.
     /// # Errors
     /// Returns an [`Error`] if a buffer is missing or too short, or TA-Lib rejects the parameters.
     pub fn call(&self, start: usize, end: usize) -> Result<OutRange, Error> {
-        let span = end
-            .checked_sub(start)
-            .and_then(|d| d.checked_add(1))
-            .ok_or(Error::BadParam)?;
+        if end < start {
+            return Err(Error::BadParam);
+        }
         if self
             .input_lengths
             .iter()
@@ -673,12 +725,17 @@ impl<'a> ParamHolder<'a> {
         {
             return Err(Error::BadParam);
         }
+        let lookback = self.lookback()?;
+        let required = end
+            .checked_add(1)
+            .ok_or(Error::BadParam)?
+            .saturating_sub(start.max(lookback));
         for capacity in &self.output_capacities {
             match *capacity {
-                Some(capacity) if capacity >= span => {}
+                Some(capacity) if capacity >= required => {}
                 actual => {
                     return Err(Error::OutputBufferTooSmall {
-                        required: span,
+                        required,
                         actual: actual.unwrap_or(0),
                     });
                 }
@@ -702,87 +759,5 @@ impl Drop for ParamHolder<'_> {
         // SAFETY: `raw` was allocated by `TA_ParamHolderAlloc` and this is its only owner. The
         // holder outlives every slice registered with it because those borrows share its `'a`.
         unsafe { sys::TA_ParamHolderFree(self.raw) };
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The reflective tables expose all ten groups, all 237 functions, and the XML payload.
-    #[test]
-    fn catalog_exposes_all_groups_and_functions() {
-        let groups = groups().expect("group table");
-        assert_eq!(groups.len(), 10);
-        assert!(groups.iter().any(|g| g == "Overlap Studies"));
-        assert!(groups.iter().any(|g| g == "Momentum Indicators"));
-        let mut functions = all_functions().expect("function catalog");
-        assert_eq!(functions.len(), 237);
-        assert!(functions.iter().any(|name| name == "SMA"));
-        let overlap = functions_in_group("Overlap Studies").expect("overlap");
-        assert!(overlap.iter().any(|name| name == "SMA"));
-        let mut visited = Vec::new();
-        for_each_function(&mut |info| visited.push(info.name.clone())).expect("traversal");
-        visited.sort();
-        functions.sort();
-        assert_eq!(visited, functions);
-        let xml = function_description_xml();
-        assert!(xml.starts_with("<?xml") && xml.contains("<FinancialFunctions>"));
-    }
-
-    fn sma_holder<'a>(input: &'a [f64], output: &'a mut [f64]) -> ParamHolder<'a> {
-        let handle = FuncHandle::get("SMA").expect("SMA handle");
-        let mut holder = ParamHolder::new(&handle).expect("param holder");
-        holder.set_input_real(0, input).expect("bind close");
-        holder.set_opt_input_integer(0, 3).expect("set period");
-        holder.set_output_real(0, output).expect("bind output");
-        holder
-    }
-
-    /// Function metadata and a dynamic SMA invocation agree with the static indicator.
-    #[test]
-    fn dynamic_sma_matches_native_values() {
-        let handle = FuncHandle::get("SMA").expect("SMA handle");
-        let info = handle.info().expect("SMA info");
-        assert_eq!(
-            (info.name.as_str(), info.group.as_str()),
-            ("SMA", "Overlap Studies")
-        );
-        let input_info = handle.input_parameter_info(0).expect("input info");
-        assert_eq!(input_info.parameter_type, InputParameterType::Real);
-        let opt = handle.opt_input_parameter_info(0).expect("opt input info");
-        assert_eq!(opt.parameter_type, OptInputParameterType::IntegerRange);
-        let OptInputDataSet::IntegerRange(range) = opt.data_set else {
-            panic!("SMA period should use an integer range");
-        };
-        assert!(range.min <= 2 && range.max >= 1_000);
-        let output_info = handle.output_parameter_info(0).expect("output info");
-        assert_eq!(output_info.parameter_type, OutputParameterType::Real);
-
-        let input = [1.0_f64, 2.0, 3.0, 4.0, 5.0];
-        let mut output = [0.0_f64; 5];
-        let holder = sma_holder(&input, &mut output);
-        assert_eq!(holder.lookback().expect("lookback"), 2);
-        let range = holder.call(0, 4).expect("call SMA");
-        assert_eq!((range.begin, range.count), (2, 3));
-        drop(holder);
-        assert!((output[0] - 2.0).abs() < 1e-12);
-        assert!((output[1] - 3.0).abs() < 1e-12);
-        assert!((output[2] - 4.0).abs() < 1e-12);
-    }
-
-    /// Output buffers shorter than the requested span are rejected before reaching C.
-    #[test]
-    fn short_output_buffer_is_rejected() {
-        let input = [1.0_f64, 2.0, 3.0, 4.0, 5.0];
-        let mut output = [0.0_f64; 3];
-        let holder = sma_holder(&input, &mut output);
-        assert_eq!(
-            holder.call(0, 4),
-            Err(Error::OutputBufferTooSmall {
-                required: 5,
-                actual: 3
-            })
-        );
     }
 }

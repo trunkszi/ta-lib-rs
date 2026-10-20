@@ -126,6 +126,15 @@ pub fn true_range(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::indicators::test_support::{
+        BeginIndex, check_indicator, close, initialize_test_runtime,
+    };
+
+    check_indicator!(atr_batch_and_stream, atr, atr_f32, atr_into, atr_f32_into, atr_lookback, atr_display_shift, AtrStream, [high, low, close], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
+
+    check_indicator!(natr_batch_and_stream, natr, natr_f32, natr_into, natr_f32_into, natr_lookback, natr_display_shift, NatrStream, [high, low, close], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
+
+    check_indicator!(trange_batch_and_stream, trange, trange_f32, trange_into, trange_f32_into, trange_lookback, trange_display_shift, TrangeStream, [high, low, close], [], [outreal: f64: 0], |v: f64| vec![v]);
 
     fn bars(len: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
         let close: Vec<f64> = (1..=len).map(|value| 100.0 + value as f64).collect();

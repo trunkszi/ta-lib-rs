@@ -92,12 +92,15 @@ pub enum Error {
     },
 }
 
+/// Crate-wide result alias defaulting to [`Error`].
+pub type Result<T, E = Error> = core::result::Result<T, E>;
+
 /// Convert a [`sys::TA_RetCode`] into `Result<(), Error>`.
 ///
 /// # Errors
 ///
 /// Returns an [`Error`] if `code` is not [`sys::TA_RetCode::TA_SUCCESS`].
-pub fn check_ret_code(code: sys::TA_RetCode) -> Result<(), Error> {
+pub fn check_ret_code(code: sys::TA_RetCode) -> Result<()> {
     match code {
         sys::TA_RetCode::TA_SUCCESS => Ok(()),
         sys::TA_RetCode::TA_BAD_PARAM => Err(Error::BadParam),

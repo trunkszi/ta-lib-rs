@@ -5,6 +5,7 @@ use std::{
     sync::Once,
 };
 
+use anyhow::Result;
 use ta_lib::{
     Error, OutRange,
     abstract_api::{
@@ -23,25 +24,26 @@ fn init() {
 
 /// The reflective tables expose all ten groups, all functions, and the XML payload.
 #[test]
-fn catalog_exposes_all_groups_and_functions() {
+fn catalog_exposes_all_groups_and_functions() -> Result<()> {
     init();
-    let groups = groups().expect("group table");
+    let groups = groups()?;
     assert_eq!(groups.len(), 10);
     assert!(groups.iter().any(|g| g == "Overlap Studies"));
     assert!(groups.iter().any(|g| g == "Momentum Indicators"));
-    let mut functions = all_functions().expect("function catalog");
+    let mut functions = all_functions()?;
     let expected_count = if cfg!(feature = "stable") { 201 } else { 237 };
     assert_eq!(functions.len(), expected_count);
     assert!(functions.iter().any(|name| name == "SMA"));
-    let overlap = functions_in_group("Overlap Studies").expect("overlap");
+    let overlap = functions_in_group("Overlap Studies")?;
     assert!(overlap.iter().any(|name| name == "SMA"));
     let mut visited = Vec::new();
-    for_each_function(&mut |info| visited.push(info.name.clone())).expect("traversal");
+    for_each_function(&mut |info| visited.push(info.name.clone()))?;
     visited.sort();
     functions.sort();
     assert_eq!(visited, functions);
     let xml = function_description_xml();
     assert!(xml.starts_with("<?xml") && xml.contains("<FinancialFunctions>"));
+    Ok(())
 }
 
 fn sma_holder<'a>(input: &'a [f64], output: &'a mut [f64]) -> ParamHolder<'a> {

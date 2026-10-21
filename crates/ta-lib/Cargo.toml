@@ -18,6 +18,7 @@ stable = ["ta-lib-sys/stable"]
 ta-lib-sys = { workspace = true }
 ta-lib-macros = { workspace = true }
 thiserror = { workspace = true }
+anyhow = { workspace = true }
 
 [lints]
 workspace = true

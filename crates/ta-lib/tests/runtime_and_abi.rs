@@ -8,6 +8,7 @@ use std::{
 };
 
 const TA_SUCCESS: sys::TA_RetCode = sys::TA_RetCode::TA_SUCCESS;
+use anyhow::Context;
 use ta_lib::{self as ta, CandleSettingType as Candle, Compatibility, RangeType, sys};
 
 static RUNTIME: Mutex<()> = Mutex::new(());
@@ -16,7 +17,7 @@ struct RuntimeGuard(MutexGuard<'static, ()>);
 impl RuntimeGuard {
     fn new() -> Self {
         let lock = RUNTIME.lock().expect("runtime test mutex poisoned");
-        ta::initialize().expect("initialize TA-Lib");
+        ta::initialize().context("initialize TA-Lib").unwrap();
         Self(lock)
     }
 }

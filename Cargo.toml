@@ -17,6 +17,7 @@ ta-lib-sys = { path = "crates/ta-lib-sys" }
 ta-lib-macros = { path = "crates/ta-lib-macros" }
 cmake = { version = "0.1" }
 thiserror = { version = "2.0" }
+anyhow = { version = "1.0" }
 syn = { version = "2", features = ["full", "extra-traits"] }
 quote = { version = "1" }
 proc-macro2 = { version = "1" }

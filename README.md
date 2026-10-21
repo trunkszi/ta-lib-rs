@@ -256,10 +256,23 @@ output buffers must hold at least `(end + 1).saturating_sub(start.max(lookback))
 elements. Read only the returned output count after dropping the holder. A holder
 may be called again while its buffers remain bound.
 
-All fallible wrappers return `ta_lib::Error`, including native return-code
-information for errors without a dedicated Rust variant. Raw FFI remains
-available through `ta_lib::sys` for callers that need to manage C contracts
-directly.
+All fallible wrappers return `ta_lib::Result<T>` (`Result<T, ta_lib::Error>`),
+where `ta_lib::Error` is defined via `thiserror::Error` and includes native
+return-code information for errors without a dedicated Rust variant. `ta_lib`
+also re-exports `anyhow` (`ta_lib::anyhow`) so applications and examples can
+compose errors seamlessly with `anyhow::Result`. Raw FFI remains available
+through `ta_lib::sys` for callers that need to manage C contracts directly.
+
+## Runnable examples
+
+The [`crates/ta-lib/examples`](crates/ta-lib/examples) directory provides
+standalone examples managed with `anyhow::Result`:
+
+```sh
+cargo run -p ta-lib --example batch_indicators
+cargo run -p ta-lib --example streaming_quotes
+cargo run -p ta-lib --example abstract_catalog
+```
 
 ## License
 

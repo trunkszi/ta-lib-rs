@@ -11,7 +11,8 @@ pub use abstract_api::{
     NamedReal, OptInputDataSet, OptInputParameterInfo, OptInputParameterType, OutputParameterInfo,
     OutputParameterType, ParamHolder, RealRange,
 };
-pub use error::{Error, RetCodeInfo, check_ret_code, ret_code_info};
+pub use anyhow;
+pub use error::{Error, Result, RetCodeInfo, check_ret_code, ret_code_info};
 pub use indicators::*;
 pub use runtime::*;
 pub use ta_lib_macros::ta_indicators;

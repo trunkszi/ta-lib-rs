@@ -265,13 +265,21 @@ through `ta_lib::sys` for callers that need to manage C contracts directly.
 
 ## Runnable examples
 
-The [`crates/ta-lib/examples`](crates/ta-lib/examples) directory provides
-standalone examples managed with `anyhow::Result`:
+The [`crates/ta-lib/examples`](crates/ta-lib/examples) directory provides 8
+progressive examples managed with `anyhow::Result`, covering batch APIs,
+zero-allocation buffers, RAII streaming, candlestick settings, runtime controls,
+reflective Abstract execution, custom `ta_indicators!` procedural macro
+bindings, and direct `ta-lib-sys` C FFI:
 
 ```sh
-cargo run -p ta-lib --example batch_indicators
-cargo run -p ta-lib --example streaming_quotes
-cargo run -p ta-lib --example abstract_catalog
+cargo run -p ta-lib --example 01_batch_f64_and_f32
+cargo run -p ta-lib --example 02_zero_alloc_buffers
+cargo run -p ta-lib --example 03_streaming_state_machine
+cargo run -p ta-lib --example 04_candlestick_patterns
+cargo run -p ta-lib --example 05_runtime_and_unstable_periods
+cargo run -p ta-lib --example 06_abstract_reflection
+cargo run -p ta-lib --example 07_macro_custom_bindings
+cargo run -p ta-lib --example 08_low_level_sys_ffi
 ```
 
 ## License

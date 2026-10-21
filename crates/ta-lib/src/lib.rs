@@ -17,7 +17,10 @@ pub use anyhow;
 pub use error::{Error, Result, RetCodeInfo, check_ret_code, ret_code_info};
 pub use indicators::*;
 pub use runtime::*;
-pub use ta_lib_macros::ta_indicators;
+pub use serde;
+pub use ta_lib_macros::{
+    FeatureSet, TaStream, ta_batch_aligned, ta_call, ta_dyn_call, ta_indicators,
+};
 pub use ta_lib_sys as sys;
 pub use types::{
     CandleSettingType, Compatibility, FuncUnstId, MAType, MovingAverageType, OutRange, RangeType,

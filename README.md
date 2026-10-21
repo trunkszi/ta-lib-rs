@@ -12,7 +12,7 @@ selecting indicators at runtime.
 | Crate | Responsibility |
 | --- | --- |
 | [`ta-lib-sys`](crates/ta-lib-sys) | Fetches upstream TA-Lib into `target/`, builds the C library statically with CMake, and generates raw FFI declarations from `ABI.manifest`. |
-| [`ta-lib-macros`](crates/ta-lib-macros) | Implements `ta_indicators!`, generating typed batch, caller-buffer, `lookback`, `display_shift` and RAII streaming bindings. |
+| [`ta-lib-macros`](crates/ta-lib-macros) | Implements `#[derive(FeatureSet)]` (`#[derive(TaStream)]`), `ta_call!`, `ta_batch_aligned!`, `ta_dyn_call!`, and `ta_indicators!`. |
 | [`ta-lib`](crates/ta-lib) | Exposes safe indicator functions, domain types, errors, runtime configuration and the Abstract API. |
 
 All indicators have typed batch and streaming bindings:
@@ -259,17 +259,79 @@ may be called again while its buffers remain bound.
 All fallible wrappers return `ta_lib::Result<T>` (`Result<T, ta_lib::Error>`),
 where `ta_lib::Error` is defined via `thiserror::Error` and includes native
 return-code information for errors without a dedicated Rust variant. `ta_lib`
-also re-exports `anyhow` (`ta_lib::anyhow`) so applications and examples can
-compose errors seamlessly with `anyhow::Result`. Raw FFI remains available
-through `ta_lib::sys` for callers that need to manage C contracts directly.
+also re-exports `anyhow` (`ta_lib::anyhow`) and `serde` (`ta_lib::serde`). Raw
+FFI remains available through `ta_lib::sys` for callers that need to manage C
+contracts directly.
+
+## Application-level procedural macros
+
+In addition to `ta_indicators!`, `ta-lib` re-exports four ergonomic procedural
+macros designed for strategy and feature-engineering workflows:
+
+- **`#[derive(FeatureSet)]`** (alias **`#[derive(TaStream)]`**): Derives both a
+  columnar Structure-of-Arrays `<Name>Batch` (`compute_aligned`, `compute_padded`,
+  reusable `compute_aligned_into` / `compute_padded_into`, `row(i)`, and
+  `ExactSizeIterator`) and a native C-stream incremental engine `<Name>Stream`
+  (`open`, single-pass `open_and_fill`, `peek`, `next` / `update`, `value`,
+  `out_range`, `advance`, `try_clone`). Automatically infers canonical OHLCV
+  inputs and honors `#[serde(rename / rename_all)]`.
+- **`ta_call!`**: Separates inputs and optional parameters with `;`, mapping `_`
+  to `None` and wrapping values in `Some(...)`. Prefixing with `padded:`
+  (`ta_call!(padded: ta_lib::rsi(&close; 14))`) produces a full-length vector
+  with `0..lookback` padded in-place with `f64::NAN`.
+- **`ta_batch_aligned!`**: Runs multiple single- or multi-output batch calls and
+  slices every output vector to start at the shared `max(begin)` index.
+- **`ta_dyn_call!`**: Executes a reflective Abstract API call (`FuncHandle` +
+  `ParamHolder`) in a single expression.
+
+```rust
+use ta_lib::{Error, FeatureSet, MAType, initialize, ta_batch_aligned, ta_call};
+
+#[derive(Debug, Clone, PartialEq, FeatureSet)]
+pub struct SignalPanel {
+    #[ta(ema(3))]
+    pub fast_ema: f64,
+    #[ta(rsi(3))]
+    pub rsi_3: f64,
+    #[ta(atr(3))]
+    pub atr_3: f64,
+    #[ta(macd(2, 4, 2), out = 2)]
+    pub macd_hist: f64,
+}
+
+fn main() -> Result<(), Error> {
+    initialize()?;
+    let high = [11.0, 12.0, 13.0, 12.5, 14.0, 15.0, 16.0, 15.5, 17.0, 18.0];
+    let low = [9.5, 10.5, 11.0, 10.8, 12.0, 13.0, 14.0, 13.8, 15.0, 16.0];
+    let close = [10.0, 11.0, 12.0, 11.5, 13.0, 14.0, 15.0, 14.5, 16.0, 17.0];
+
+    let rsi_padded = ta_call!(padded: ta_lib::rsi(&close; 3))?;
+    assert_eq!(rsi_padded.len(), close.len());
+    assert!(rsi_padded[0].is_nan());
+
+    let aligned = ta_batch_aligned! {
+        ema_3: ta_lib::ema(&close; 3),
+        (up, mid, lo): ta_lib::bbands(&close; 3, _, _, MAType::Sma),
+    }?;
+    assert_eq!(aligned.ema_3.len(), aligned.up.len());
+
+    let (mut stream, batch) = SignalPanelStream::open_and_fill(&high, &low, &close)?;
+    assert_eq!(stream.value()?, batch.row(batch.len() - 1).unwrap());
+    let preview = stream.peek(19.0, 17.0, 18.5)?;
+    let committed = stream.next(19.0, 17.0, 18.5)?;
+    assert_eq!(preview, committed);
+    Ok(())
+}
+```
 
 ## Runnable examples
 
-The [`crates/ta-lib/examples`](crates/ta-lib/examples) directory provides 8
+The [`crates/ta-lib/examples`](crates/ta-lib/examples) directory provides 10
 progressive examples managed with `anyhow::Result`, covering batch APIs,
 zero-allocation buffers, RAII streaming, candlestick settings, runtime controls,
-reflective Abstract execution, custom `ta_indicators!` procedural macro
-bindings, and direct `ta-lib-sys` C FFI:
+reflective Abstract execution, custom `ta_indicators!` bindings, direct
+`ta-lib-sys` C FFI, `ta_call!` / `ta_batch_aligned!` / `ta_dyn_call!`, and
+unified `#[derive(FeatureSet)]` batch + streaming pipelines:
 
 ```sh
 cargo run -p ta-lib --example 01_batch_f64_and_f32
@@ -280,6 +342,8 @@ cargo run -p ta-lib --example 05_runtime_and_unstable_periods
 cargo run -p ta-lib --example 06_abstract_reflection
 cargo run -p ta-lib --example 07_macro_custom_bindings
 cargo run -p ta-lib --example 08_low_level_sys_ffi
+cargo run -p ta-lib --example 09_ergonomic_call_and_batch_macros
+cargo run -p ta-lib --example 10_derive_feature_set_pipeline
 ```
 
 ## License

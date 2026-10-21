@@ -3,7 +3,7 @@
 use ta_lib_sys as sys;
 
 /// Valid output range written by a batch or streaming TA-Lib calculation.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct OutRange {
     /// Index of the first input bar that produced an output value (`outBegIdx`).
     pub begin: usize,
@@ -13,7 +13,9 @@ pub struct OutRange {
 
 /// Moving average algorithm type (`TA_MAType`).
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum MAType {
     /// Simple Moving Average (`TA_MAType_SMA`).
     Sma = sys::TA_MAType::TA_MAType_SMA as u32,
@@ -129,7 +131,9 @@ impl From<sys::TA_MAType> for MAType {
 
 /// Calculation compatibility mode (`TA_Compatibility`).
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Default)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum Compatibility {
     /// Standard TA-Lib calculation mode (`TA_COMPATIBILITY_DEFAULT`).
     #[default]
@@ -158,7 +162,7 @@ impl From<sys::TA_Compatibility> for Compatibility {
 
 /// Range measurement type for candlestick settings (`TA_RangeType`).
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum RangeType {
     /// Open-to-close real body (`TA_RangeType_RealBody`).
     RealBody = sys::TA_RangeType::TA_RangeType_RealBody as u32,
@@ -180,7 +184,7 @@ impl From<RangeType> for sys::TA_RangeType {
 
 /// Candlestick setting classification (`TA_CandleSettingType`).
 #[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum CandleSettingType {
     /// Long real body.
     BodyLong = sys::TA_CandleSettingType::TA_BodyLong as u32,

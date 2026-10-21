@@ -43,6 +43,13 @@ mod custom_strategy {
             opts: [],
             outs: [signal: i32],
         };
+
+        /// Shorthand syntax: omitting `=> RSI, RsiStream` infers C symbol and Stream name via `heck`.
+        rsi {
+            inputs: [close],
+            opts: [period: i32],
+            outs: [rsi: f64],
+        };
     }
 }
 
@@ -104,12 +111,15 @@ fn main() -> Result<()> {
          {m1:.4}, {l1:.4}) [peek=({u_peek:.4}, {m_peek:.4}, {l_peek:.4})]"
     );
 
-    // 4. Call macro-generated integer-output candlestick detector
+    // 4. Call macro-generated integer-output candlestick detector & inferred-name `rsi`
     let (doji_signals, doji_begin) =
         custom_strategy::doji_detector(&open, &high, &low, &close).context("doji_detector")?;
+    let (rsi_vals, rsi_begin) = custom_strategy::rsi(&close, Some(4)).context("inferred rsi(4)")?;
     println!(
-        "[Macro i32]   doji_detector: begin={doji_begin}, signals={:?}",
-        doji_signals
+        "[Macro i32]   doji_detector: begin={doji_begin}, signals={:?}, inferred rsi(4) \
+         begin={rsi_begin} len={}",
+        doji_signals,
+        rsi_vals.len()
     );
 
     Ok(())

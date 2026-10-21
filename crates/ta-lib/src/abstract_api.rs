@@ -299,7 +299,7 @@ pub fn for_each_function(callback: &mut dyn FnMut(&FuncInfo)) -> Result<(), Erro
 }
 
 /// Required input parameter kind (`TA_InputParameterType`).
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum InputParameterType {
     Price,
     Real,
@@ -317,7 +317,7 @@ impl From<sys::TA_InputParameterType> for InputParameterType {
 }
 
 /// Owned snapshot of a `TA_InputParameterInfo` record.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct InputParameterInfo {
     pub parameter_type: InputParameterType,
     pub name: String,
@@ -325,7 +325,7 @@ pub struct InputParameterInfo {
 }
 
 /// Optional input parameter kind (`TA_OptInputParameterType`).
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum OptInputParameterType {
     RealRange,
     RealList,
@@ -344,7 +344,7 @@ impl From<sys::TA_OptInputParameterType> for OptInputParameterType {
 }
 
 /// Continuous range metadata for a real-valued optional input.
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct RealRange {
     pub min: f64,
     pub max: f64,
@@ -355,7 +355,7 @@ pub struct RealRange {
 }
 
 /// Range metadata for an integer-valued optional input.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct IntegerRange {
     pub min: i32,
     pub max: i32,
@@ -365,21 +365,21 @@ pub struct IntegerRange {
 }
 
 /// Named real value from a `TA_RealList`.
-#[derive(Debug, Clone, PartialEq, Default)]
+#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 pub struct NamedReal {
     pub name: String,
     pub value: f64,
 }
 
 /// Named integer value from a `TA_IntegerList`.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub struct NamedInteger {
     pub name: String,
     pub value: i32,
 }
 
 /// Domain metadata carried by an optional input parameter.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum OptInputDataSet {
     RealRange(RealRange),
     IntegerRange(IntegerRange),
@@ -388,7 +388,7 @@ pub enum OptInputDataSet {
 }
 
 /// Owned snapshot of a `TA_OptInputParameterInfo` record.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct OptInputParameterInfo {
     pub parameter_type: OptInputParameterType,
     pub name: String,
@@ -401,7 +401,7 @@ pub struct OptInputParameterInfo {
 }
 
 /// Output parameter kind (`TA_OutputParameterType`).
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum OutputParameterType {
     Real,
     Integer,
@@ -418,7 +418,7 @@ impl From<sys::TA_OutputParameterType> for OutputParameterType {
 }
 
 /// Owned snapshot of a `TA_OutputParameterInfo` record.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct OutputParameterInfo {
     pub parameter_type: OutputParameterType,
     pub name: String,

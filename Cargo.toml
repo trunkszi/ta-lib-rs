@@ -18,9 +18,16 @@ ta-lib-macros = { path = "crates/ta-lib-macros" }
 cmake = { version = "0.1" }
 thiserror = { version = "2.0" }
 anyhow = { version = "1.0" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
 syn = { version = "2", features = ["full", "extra-traits"] }
 quote = { version = "1" }
 proc-macro2 = { version = "1" }
+darling = { version = "0.23" }
+heck = { version = "0.5" }
+convert_case = { version = "0.11" }
+synstructure = { version = "0.13" }
+proc-macro-crate = { version = "3" }
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

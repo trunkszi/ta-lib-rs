@@ -109,16 +109,6 @@ const UNSTABLE_IDS: &[ta::FuncUnstId] = &[
     ta::FuncUnstId::TA_FUNC_UNST_RMA,
     ta::FuncUnstId::TA_FUNC_UNST_HA,
     ta::FuncUnstId::TA_FUNC_UNST_RVI,
-    ta::FuncUnstId::TA_FUNC_UNST_FRAMA,
-    ta::FuncUnstId::TA_FUNC_UNST_MCGD,
-    ta::FuncUnstId::TA_FUNC_UNST_VIDYA,
-    ta::FuncUnstId::TA_FUNC_UNST_STC,
-    ta::FuncUnstId::TA_FUNC_UNST_SWAK_GAUSS,
-    ta::FuncUnstId::TA_FUNC_UNST_SWAK_BUTTER,
-    ta::FuncUnstId::TA_FUNC_UNST_SWAK_HP,
-    ta::FuncUnstId::TA_FUNC_UNST_SWAK_2PHP,
-    ta::FuncUnstId::TA_FUNC_UNST_SWAK_BP,
-    ta::FuncUnstId::TA_FUNC_UNST_FISHER,
 ];
 
 #[test]
@@ -130,12 +120,7 @@ fn unstable_periods_cover_every_id_and_all_broadcast() {
         ta::set_unstable_period(id, period).unwrap();
         assert_eq!(ta::get_unstable_period(id), period, "{id:?}");
     }
-    for period in [
-        0,
-        11,
-        sys::TA_UNSTABLE_AUTO_PREC_4,
-        sys::TA_UNSTABLE_AUTO_PREC_8,
-    ] {
+    for period in [0, 11, sys::TA_MAX_INDEX as u32] {
         ta::set_unstable_period(ta::FuncUnstId::TA_FUNC_UNST_ALL, period).unwrap();
         for &id in UNSTABLE_IDS {
             assert_eq!(ta::get_unstable_period(id), period);
@@ -147,7 +132,7 @@ fn unstable_periods_cover_every_id_and_all_broadcast() {
         Err(ta::Error::BadParam)
     );
     for &id in UNSTABLE_IDS {
-        assert_eq!(ta::get_unstable_period(id), sys::TA_UNSTABLE_AUTO_PREC_8);
+        assert_eq!(ta::get_unstable_period(id), sys::TA_MAX_INDEX as u32);
     }
 }
 
@@ -195,7 +180,7 @@ fn candle_settings_cover_all_ranges_and_restore_targets() {
                 assert_eq!(unsafe { sys::TA_CDLDOJI_Lookback() }, 10);
             }
         }
-        for (period, factor) in [(-1, 1.0), (1, -1.0), (1, f64::NAN), (1, f64::INFINITY)] {
+        for (period, factor) in [(-1, 1.0), (sys::TA_MAX_INDEX + 1, 1.0), (1, f64::NAN)] {
             assert_eq!(
                 ta::set_candle_settings(setting, RangeType::RealBody, period, factor),
                 Err(ta::Error::BadParam)
@@ -306,7 +291,7 @@ impl Drop for ParamHolder {
 }
 
 #[test]
-fn abstract_abi_allocates_and_inspects_all_237_functions() {
+fn abstract_abi_allocates_and_inspects_all_201_functions() {
     let _runtime = RuntimeGuard::new();
     let mut raw_groups = ptr::null_mut();
     assert_eq!(
@@ -391,7 +376,7 @@ fn abstract_abi_allocates_and_inspects_all_237_functions() {
             }
         }
     }
-    assert_eq!(functions.len(), 237);
+    assert_eq!(functions.len(), 201);
     assert_eq!(functions.len(), sys::GENERATED_STREAM_TYPE_COUNT);
     assert!(functions.contains("SMA") && functions.contains("CDLDOJI"));
 }

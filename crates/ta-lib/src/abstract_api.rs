@@ -696,20 +696,6 @@ impl<'a> ParamHolder<'a> {
         usize::try_from(lookback).map_err(|_| Error::BadParam)
     }
 
-    /// Return the display shift for output `index` (`TA_GetDisplayShift`).
-    /// # Errors
-    /// Returns an [`Error`] if the function provides no display shift for `index`.
-    pub fn display_shift(&self, index: u32) -> Result<i32, Error> {
-        let mut shift: i32 = 0;
-        // SAFETY: `self.raw` is a live holder and `shift` is a valid out-pointer.
-        let rc = unsafe { sys::TA_GetDisplayShift(self.raw, index, &raw mut shift) };
-        check_ret_code(rc)?;
-        if shift == sys::TA_INTEGER_DEFAULT {
-            return Err(Error::BadParam);
-        }
-        Ok(shift)
-    }
-
     /// Run the configured function over the inclusive `start..=end` range (`TA_CallFunc`).
     /// Inputs must cover `end`; outputs must hold `end + 1 - max(start, lookback)` elements.
     /// # Errors

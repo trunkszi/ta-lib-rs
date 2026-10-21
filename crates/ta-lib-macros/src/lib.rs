@@ -6,7 +6,7 @@ mod model;
 use proc_macro::TokenStream;
 
 /// Generate safe batch (`f64` and `f32`), zero-allocation (`_into`), `lookback`,
-/// `display_shift`, and RAII `Stream` bindings for one or more TA-Lib indicators.
+/// and RAII `Stream` bindings for one or more TA-Lib indicators.
 ///
 /// # Errors
 ///

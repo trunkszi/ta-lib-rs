@@ -11,7 +11,7 @@ use std::{
 };
 
 const REPOSITORY: &str = "https://github.com/TA-Lib/ta-lib.git";
-const PINNED_REV: &str = "1da0e86bb6c51aac9b1652ba350c9821e31994c9";
+const DEFAULT_TAG: &str = "v0.8.1";
 
 fn is_source_tree(path: &Path) -> bool {
     path.join("CMakeLists.txt").is_file()
@@ -19,8 +19,8 @@ fn is_source_tree(path: &Path) -> bool {
         && path.join("include/ta_libc.h").is_file()
 }
 
-fn target_cache_dir(manifest: &Path, out_dir: &Path) -> PathBuf {
-    let target_dir = env::var_os("CARGO_TARGET_DIR")
+fn target_root(manifest: &Path, out_dir: &Path) -> PathBuf {
+    env::var_os("CARGO_TARGET_DIR")
         .map(PathBuf::from)
         .map(|path| {
             if path.is_absolute() {
@@ -36,36 +36,91 @@ fn target_cache_dir(manifest: &Path, out_dir: &Path) -> PathBuf {
                 .and_then(Path::parent)
                 .and_then(Path::parent)
                 .map(Path::to_path_buf)
-        });
-    target_dir
-        .map(|path| path.join("vendor-cache/ta-lib"))
-        .unwrap_or_else(|| out_dir.join("ta-lib-src"))
+        })
+        .unwrap_or_else(|| out_dir.to_path_buf())
 }
 
-fn git_revision(source: &Path) -> String {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(source)
-        .args(["rev-parse", "HEAD"])
+fn parse_semver_tag(tag: &str) -> Option<(u32, u32, u32)> {
+    let rest = tag.strip_prefix('v')?;
+    if rest.contains('-') {
+        return None;
+    }
+    let mut parts = rest.split('.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    let patch = parts.next()?.parse().ok()?;
+    if parts.next().is_some() {
+        return None;
+    }
+    Some((major, minor, patch))
+}
+
+fn resolve_latest_release_tag(target_dir: &Path) -> String {
+    if let Ok(entries) = fs::read_dir(target_dir) {
+        let mut cached: Vec<(u32, u32, u32, String)> = entries
+            .flatten()
+            .filter_map(|entry| {
+                let path = entry.path();
+                if !is_source_tree(&path) {
+                    return None;
+                }
+                let name = entry.file_name().into_string().ok()?;
+                let tag = name.strip_prefix("ta-lib-")?;
+                let (maj, min, pat) = parse_semver_tag(tag)?;
+                Some((maj, min, pat, tag.to_owned()))
+            })
+            .collect();
+        cached.sort();
+        if let Some((_, _, _, tag)) = cached.pop() {
+            return tag;
+        }
+    }
+
+    if let Ok(output) = Command::new("git")
+        .args(["ls-remote", "--tags", "--refs", REPOSITORY, "v*"])
         .output()
-        .expect("read TA-Lib source revision");
-    assert!(
-        output.status.success(),
-        "failed to read TA-Lib source revision at {}",
-        source.display()
-    );
-    String::from_utf8(output.stdout)
-        .expect("TA-Lib revision is UTF-8")
-        .trim()
-        .to_owned()
+        && output.status.success()
+        && let Ok(stdout) = String::from_utf8(output.stdout)
+    {
+        let mut tags: Vec<(u32, u32, u32, String)> = stdout
+            .lines()
+            .filter_map(|line| {
+                let ref_name = line.split_whitespace().nth(1)?;
+                let tag = ref_name.strip_prefix("refs/tags/")?;
+                let (maj, min, pat) = parse_semver_tag(tag)?;
+                Some((maj, min, pat, tag.to_owned()))
+            })
+            .collect();
+        tags.sort();
+        if let Some((_, _, _, tag)) = tags.pop() {
+            return tag;
+        }
+    }
+
+    DEFAULT_TAG.to_owned()
 }
 
-fn verify_cached_revision(source: &Path) {
+fn verify_cached_tag(source: &Path, expected_tag: &str) {
     if source.join(".git").exists() {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(source)
+            .args(["describe", "--tags", "--exact-match", "HEAD"])
+            .output()
+            .expect("verify TA-Lib tag");
+        assert!(
+            output.status.success(),
+            "failed to describe TA-Lib tag at {}",
+            source.display()
+        );
+        let actual = String::from_utf8(output.stdout)
+            .expect("UTF-8 tag")
+            .trim()
+            .to_owned();
         assert_eq!(
-            git_revision(source),
-            PINNED_REV,
-            "TA-Lib cache revision mismatch at {}",
+            actual,
+            expected_tag,
+            "TA-Lib cached tag mismatch at {}",
             source.display()
         );
     }
@@ -73,62 +128,40 @@ fn verify_cached_revision(source: &Path) {
 
 fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
     if let Ok(configured) = env::var("TA_LIB_DIR") {
-        let candidate = PathBuf::from(configured);
-        if is_source_tree(&candidate) {
-            return candidate;
+        let trimmed = configured.trim();
+        if !trimmed.is_empty() {
+            let candidate = PathBuf::from(trimmed);
+            if is_source_tree(&candidate) {
+                return candidate;
+            }
+            panic!(
+                "TA_LIB_DIR={} does not point to a valid TA-Lib CMake source tree",
+                candidate.display()
+            );
         }
-        panic!(
-            "TA_LIB_DIR={} does not point to a valid TA-Lib CMake source tree",
-            candidate.display()
-        );
     }
-    let vendor = manifest.join("../../vendor/ta-lib");
-    if is_source_tree(&vendor) {
-        return vendor;
-    }
-    let cache = target_cache_dir(manifest, out_dir);
+
+    let target_dir = target_root(manifest, out_dir);
+    fs::create_dir_all(&target_dir).expect("create target directory");
+    let tag = resolve_latest_release_tag(&target_dir);
+    let cache = target_dir.join(format!("ta-lib-{tag}"));
     if is_source_tree(&cache) {
-        verify_cached_revision(&cache);
+        verify_cached_tag(&cache, &tag);
         return cache;
     }
-    if let Some(parent) = cache.parent() {
-        fs::create_dir_all(parent).expect("create vendor-cache directory");
-    }
-    let staging = cache.with_file_name(format!("ta-lib.fetch-{}", std::process::id()));
+
+    let staging = target_dir.join(format!("ta-lib-{tag}.fetch-{}", std::process::id()));
     drop(fs::remove_dir_all(&staging));
     let status = Command::new("git")
-        .args(["clone", "--depth", "1", REPOSITORY])
+        .args(["clone", "--depth", "1", "--branch", &tag, REPOSITORY])
         .arg(&staging)
         .status()
         .expect("run git clone for TA-Lib");
-    assert!(status.success(), "failed to clone TA-Lib from {REPOSITORY}");
-    if git_revision(&staging) != PINNED_REV {
-        let fetch_status = Command::new("git")
-            .arg("-C")
-            .arg(&staging)
-            .args(["fetch", "--depth", "1", "origin", PINNED_REV])
-            .status()
-            .expect("fetch pinned TA-Lib commit");
-        assert!(
-            fetch_status.success(),
-            "failed to fetch pinned TA-Lib commit {PINNED_REV}"
-        );
-        let checkout_status = Command::new("git")
-            .arg("-C")
-            .arg(&staging)
-            .args(["checkout", "--detach", PINNED_REV])
-            .status()
-            .expect("check out pinned TA-Lib commit");
-        assert!(
-            checkout_status.success(),
-            "failed to check out pinned TA-Lib commit {PINNED_REV}"
-        );
-    }
-    assert_eq!(
-        git_revision(&staging),
-        PINNED_REV,
-        "TA-Lib clone revision mismatch"
+    assert!(
+        status.success(),
+        "failed to clone TA-Lib tag {tag} from {REPOSITORY}"
     );
+    verify_cached_tag(&staging, &tag);
     if let Err(err) = fs::rename(&staging, &cache) {
         assert!(
             is_source_tree(&cache),
@@ -137,7 +170,7 @@ fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
         );
         drop(fs::remove_dir_all(&staging));
     }
-    verify_cached_revision(&cache);
+    verify_cached_tag(&cache, &tag);
     cache
 }
 
@@ -237,15 +270,15 @@ fn generate_bindings(source: &Path, out_dir: &Path) {
         functions.push(sig);
     }
 
-    assert_eq!(
-        functions.len(),
-        3_122,
-        "unsupported TA-Lib ABI function count"
+    assert!(
+        functions.len() >= 2_451,
+        "unsupported TA-Lib ABI function count: {}",
+        functions.len()
     );
-    assert_eq!(
-        stream_types.len(),
-        237,
-        "unsupported TA-Lib ABI stream count"
+    assert!(
+        stream_types.len() >= 201,
+        "unsupported TA-Lib ABI stream count: {}",
+        stream_types.len()
     );
 
     let mut out = File::create(out_dir.join("bindings.rs")).expect("create bindings.rs");

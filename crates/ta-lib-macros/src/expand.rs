@@ -110,9 +110,7 @@ fn emit_metadata(spec: &IndicatorSpec) -> TokenStream {
         ..
     } = Parameters::new(spec);
     let fn_lookback = format_ident!("{}_lookback", spec.fn_name);
-    let fn_display_shift = format_ident!("{}_display_shift", spec.fn_name);
     let c_lookback = c_name(spec, "_Lookback");
-    let c_display_shift = c_name(spec, "_DisplayShift");
     quote! {
         /// Return the warmup bar count for the configured indicator.
         /// # Errors
@@ -122,17 +120,6 @@ fn emit_metadata(spec: &IndicatorSpec) -> TokenStream {
             // SAFETY: The native lookback accepts these scalar parameters.
             let lb = unsafe { ta_lib_sys::#c_lookback(#(#opt_c_vars),*) };
             usize::try_from(lb).map_err(|_| crate::error::Error::BadParam)
-        }
-        /// Return the chart display shift for a zero-based output index.
-        /// # Errors
-        /// Returns `BadParam` for invalid parameters or output indices.
-        pub fn #fn_display_shift(#(#opt_params_decl,)* output_idx: usize) -> Result<i32, crate::error::Error> {
-            #(#opt_c_lets)*
-            let index = i32::try_from(output_idx).map_err(|_| crate::error::Error::BadParam)?;
-            // SAFETY: The native metadata query accepts scalar parameters.
-            let shift = unsafe { ta_lib_sys::#c_display_shift(#(#opt_c_vars,)* index) };
-            if shift == ta_lib_sys::TA_INTEGER_DEFAULT { return Err(crate::error::Error::BadParam); }
-            Ok(shift)
         }
     }
 }

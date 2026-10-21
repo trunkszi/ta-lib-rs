@@ -134,6 +134,6 @@ mod tests {
         assert!(add(&a, &b[..2]).is_err());
         assert!(sum_into(&a, Some(2), &mut [0.0; 2]).is_err());
         assert!(sum(&[], Some(2)).is_err());
-        assert!(sum_display_shift(Some(2), 1).is_err());
+        assert!(sum_lookback(Some(1)).is_err());
     }
 }

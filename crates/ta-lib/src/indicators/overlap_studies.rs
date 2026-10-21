@@ -10,25 +10,11 @@ crate::ta_indicators! {
         outs: [outrealupperband: f64, outrealmiddleband: f64, outreallowerband: f64],
     };
 
-    /// Compute ALMA (Arnaud Legoux Moving Average).
-    alma => ALMA, AlmaStream {
-        inputs: [inreal],
-        opts: [time_period: i32, sigma: f64, offset: f64],
-        outs: [outreal: f64],
-    };
-
     /// Compute BBANDS (Bollinger Bands).
     bbands => BBANDS, BbandsStream {
         inputs: [inreal],
         opts: [time_period: i32, deviations_up: f64, deviations_down: f64, ma_type: MAType],
         outs: [outrealupperband: f64, outrealmiddleband: f64, outreallowerband: f64],
-    };
-
-    /// Compute CKSP (Chande Kroll Stop).
-    cksp => CKSP, CkspStream {
-        inputs: [high, low, close],
-        opts: [time_period: i32, multiplier: f64, stop_period: i32],
-        outs: [outhighstop: f64, outlowstop: f64],
     };
 
     /// Compute DEMA (Double Exponential Moving Average).
@@ -52,13 +38,6 @@ crate::ta_indicators! {
         outs: [outreal: f64],
     };
 
-    /// Compute FRAMA (Fractal Adaptive Moving Average).
-    frama => FRAMA, FramaStream {
-        inputs: [high, low],
-        opts: [time_period: i32],
-        outs: [outreal: f64],
-    };
-
     /// Compute HMA (Hull Moving Average).
     hma => HMA, HmaStream {
         inputs: [inreal],
@@ -71,13 +50,6 @@ crate::ta_indicators! {
         inputs: [inreal],
         opts: [],
         outs: [outreal: f64],
-    };
-
-    /// Compute ICHIMOKU (Ichimoku Kinko Hyo).
-    ichimoku => ICHIMOKU, IchimokuStream {
-        inputs: [high, low],
-        opts: [tenkan_period: i32, kijun_period: i32, senkou_b_period: i32],
-        outs: [outtenkansen: f64, outkijunsen: f64, outsenkouspana: f64, outsenkouspanb: f64],
     };
 
     /// Compute KAMA (Kaufman Adaptive Moving Average).
@@ -112,13 +84,6 @@ crate::ta_indicators! {
     mavp => MAVP, MavpStream {
         inputs: [inreal, inperiods],
         opts: [minimum_period: i32, maximum_period: i32, ma_type: MAType],
-        outs: [outreal: f64],
-    };
-
-    /// Compute MCGD (McGinley Dynamic).
-    mcgd => MCGD, McgdStream {
-        inputs: [inreal],
-        opts: [time_period: i32],
         outs: [outreal: f64],
     };
 
@@ -171,20 +136,6 @@ crate::ta_indicators! {
         outs: [outsupertrend: f64, outtrend: i32],
     };
 
-    /// Compute SWAK_BUTTER (Swiss Army Knife - Butterworth Filter).
-    swak_butter => SWAK_BUTTER, SwakButterStream {
-        inputs: [inreal],
-        opts: [time_period: i32],
-        outs: [outreal: f64],
-    };
-
-    /// Compute SWAK_GAUSS (Swiss Army Knife - Gaussian Filter).
-    swak_gauss => SWAK_GAUSS, SwakGaussStream {
-        inputs: [inreal],
-        opts: [time_period: i32],
-        outs: [outreal: f64],
-    };
-
     /// Compute T3 (Triple Exponential Moving Average (T3)).
     t3 => T3, T3Stream {
         inputs: [inreal],
@@ -206,13 +157,6 @@ crate::ta_indicators! {
         outs: [outreal: f64],
     };
 
-    /// Compute VIDYA (Variable Index Dynamic Average).
-    vidya => VIDYA, VidyaStream {
-        inputs: [inreal],
-        opts: [time_period: i32, cmo_period: i32],
-        outs: [outreal: f64],
-    };
-
     /// Compute VWMA (Volume Weighted Moving Average).
     vwma => VWMA, VwmaStream {
         inputs: [inreal, volume],
@@ -225,13 +169,6 @@ crate::ta_indicators! {
         inputs: [inreal],
         opts: [time_period: i32],
         outs: [outreal: f64],
-    };
-
-    /// Compute ZIGZAG (Zig Zag).
-    zigzag => ZIGZAG, ZigzagStream {
-        inputs: [high, low],
-        opts: [sensitivity: f64, minimum_trend_length: i32],
-        outs: [outzigzag: f64, outtrend: i32, outpivotidx: i32],
     };
 
     /// Compute ZLEMA (Zero-Lag Exponential Moving Average).

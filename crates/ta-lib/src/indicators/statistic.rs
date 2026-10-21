@@ -15,13 +15,6 @@ crate::ta_indicators! {
         outs: [outreal: f64],
     };
 
-    /// Compute KURTOSIS (Rolling Excess Kurtosis).
-    kurtosis => KURTOSIS, KurtosisStream {
-        inputs: [inreal],
-        opts: [time_period: i32],
-        outs: [outreal: f64],
-    };
-
     /// Compute LINEARREG (Linear Regression).
     linearreg => LINEARREG, LinearregStream {
         inputs: [inreal],
@@ -45,13 +38,6 @@ crate::ta_indicators! {
 
     /// Compute LINEARREG_SLOPE (Linear Regression Slope).
     linearreg_slope => LINEARREG_SLOPE, LinearregSlopeStream {
-        inputs: [inreal],
-        opts: [time_period: i32],
-        outs: [outreal: f64],
-    };
-
-    /// Compute MEDIAN (Rolling Median).
-    median => MEDIAN, MedianStream {
         inputs: [inreal],
         opts: [time_period: i32],
         outs: [outreal: f64],
@@ -104,8 +90,6 @@ mod tests {
 
     check_indicator!(correl_batch_and_stream, correl, correl_f32, correl_into, correl_f32_into, correl_lookback, correl_display_shift, CorrelStream, [inreal0, inreal1], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 
-    check_indicator!(kurtosis_batch_and_stream, kurtosis, kurtosis_f32, kurtosis_into, kurtosis_f32_into, kurtosis_lookback, kurtosis_display_shift, KurtosisStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
-
     check_indicator!(linearreg_batch_and_stream, linearreg, linearreg_f32, linearreg_into, linearreg_f32_into, linearreg_lookback, linearreg_display_shift, LinearregStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 
     check_indicator!(linearreg_angle_batch_and_stream, linearreg_angle, linearreg_angle_f32, linearreg_angle_into, linearreg_angle_f32_into, linearreg_angle_lookback, linearreg_angle_display_shift, LinearregAngleStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
@@ -113,8 +97,6 @@ mod tests {
     check_indicator!(linearreg_intercept_batch_and_stream, linearreg_intercept, linearreg_intercept_f32, linearreg_intercept_into, linearreg_intercept_f32_into, linearreg_intercept_lookback, linearreg_intercept_display_shift, LinearregInterceptStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 
     check_indicator!(linearreg_slope_batch_and_stream, linearreg_slope, linearreg_slope_f32, linearreg_slope_into, linearreg_slope_f32_into, linearreg_slope_lookback, linearreg_slope_display_shift, LinearregSlopeStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
-
-    check_indicator!(median_batch_and_stream, median, median_f32, median_into, median_f32_into, median_lookback, median_display_shift, MedianStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 
     check_indicator!(percentile_batch_and_stream, percentile, percentile_f32, percentile_into, percentile_f32_into, percentile_lookback, percentile_display_shift, PercentileStream, [inreal], [Some(8), Some(50.0)], [outreal: f64: 0], |v: f64| vec![v]);
 

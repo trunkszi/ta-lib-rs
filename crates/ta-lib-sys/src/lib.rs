@@ -72,9 +72,9 @@ pub const TA_OUT_NULLABLE: TA_OutputFlags = 0x0000_2000;
 pub const TA_OUT_DISPLAY_SHIFT: TA_OutputFlags = 0x0000_4000;
 pub const TA_OUT_PATTERN_WEAK: TA_OutputFlags = 0x0000_8000;
 
-pub const TA_FUNC_UNST_COUNT: usize = 37;
+pub const TA_FUNC_UNST_COUNT: usize = 27;
 pub const TA_MATYPE_MIN: c_uint = 0;
-pub const TA_MATYPE_MAX: c_uint = 15;
+pub const TA_MATYPE_MAX: c_uint = 13;
 
 /// Native return code, including internal-error identifiers and unknown future values.
 #[repr(transparent)]
@@ -184,8 +184,6 @@ pub enum TA_MAType {
     TA_MAType_DEFAULT = 11,
     TA_MAType_ZLEMA = 12,
     TA_MAType_RMA = 13,
-    TA_MAType_VIDYA = 14,
-    TA_MAType_ALMA = 15,
 }
 
 #[repr(u32)]
@@ -218,16 +216,6 @@ pub enum TA_FuncUnstId {
     TA_FUNC_UNST_RMA = 24,
     TA_FUNC_UNST_HA = 25,
     TA_FUNC_UNST_RVI = 26,
-    TA_FUNC_UNST_FRAMA = 27,
-    TA_FUNC_UNST_MCGD = 28,
-    TA_FUNC_UNST_VIDYA = 29,
-    TA_FUNC_UNST_STC = 30,
-    TA_FUNC_UNST_SWAK_GAUSS = 31,
-    TA_FUNC_UNST_SWAK_BUTTER = 32,
-    TA_FUNC_UNST_SWAK_HP = 33,
-    TA_FUNC_UNST_SWAK_2PHP = 34,
-    TA_FUNC_UNST_SWAK_BP = 35,
-    TA_FUNC_UNST_FISHER = 36,
     TA_FUNC_UNST_ALL = 65535,
 }
 
@@ -405,8 +393,8 @@ mod tests {
 
     #[test]
     fn abi_manifest_struct_sizes_and_offsets_match() {
-        assert_eq!(GENERATED_FUNCTION_COUNT, 3122);
-        assert_eq!(GENERATED_STREAM_TYPE_COUNT, 237);
+        assert_eq!(GENERATED_FUNCTION_COUNT, 2451);
+        assert_eq!(GENERATED_STREAM_TYPE_COUNT, 201);
 
         assert_eq!(size_of::<TA_FuncInfo>(), 48);
         assert_eq!(offset_of!(TA_FuncInfo, name), 0);

@@ -1,32 +1,33 @@
 # ta-lib-rs
 
-Rust 2024 bindings for TA-Lib **0.8.3**, covering all **237 indicators** in its
-10 function groups. The workspace provides typed batch and streaming APIs, plus
-a reflective Abstract API for selecting indicators at runtime.
+Rust 2024 bindings for the latest TA-Lib release tag (**v0.8.1**), covering all
+**201 indicators** in its 10 function groups. The workspace provides typed batch
+and streaming APIs, plus a reflective Abstract API for selecting indicators at
+runtime.
 
 ## Workspace architecture
 
 | Crate | Responsibility |
 | --- | --- |
-| [`ta-lib-sys`](crates/ta-lib-sys) | Builds the C library statically with CMake and generates raw FFI declarations from upstream `ABI.manifest`. |
-| [`ta-lib-macros`](crates/ta-lib-macros) | Implements `ta_indicators!`, generating typed batch, caller-buffer, metadata and RAII streaming bindings. |
+| [`ta-lib-sys`](crates/ta-lib-sys) | Fetches the latest upstream TA-Lib release tag into `target/`, builds the C library statically with CMake, and generates raw FFI declarations from `ABI.manifest`. |
+| [`ta-lib-macros`](crates/ta-lib-macros) | Implements `ta_indicators!`, generating typed batch, caller-buffer, `lookback` and RAII streaming bindings. |
 | [`ta-lib`](crates/ta-lib) | Exposes safe indicator functions, domain types, errors, runtime configuration and the Abstract API. |
 
-All 237 indicators have typed batch and streaming bindings:
+All 201 indicators have typed batch and streaming bindings:
 
 | Function group | Indicators |
 | --- | ---: |
-| Cycle Indicators | 8 |
+| Cycle Indicators | 5 |
 | Math Operators | 12 |
 | Math Transform | 15 |
-| Momentum Indicators | 63 |
-| Overlap Studies | 34 |
+| Momentum Indicators | 47 |
+| Overlap Studies | 25 |
 | Pattern Recognition | 61 |
 | Price Transform | 6 |
-| Statistic Functions | 13 |
-| Volatility Indicators | 11 |
-| Volume Indicators | 14 |
-| **Total** | **237** |
+| Statistic Functions | 11 |
+| Volatility Indicators | 7 |
+| Volume Indicators | 12 |
+| **Total** | **201** |
 
 Indicator functions and stream types are re-exported at the `ta_lib` crate root;
 reflective functions live in `ta_lib::abstract_api`.
@@ -34,9 +35,9 @@ reflective functions live in `ta_lib::abstract_api`.
 ## Build and dependency setup
 
 Use the toolchain in [`rust-toolchain.toml`](rust-toolchain.toml), which includes
-Rustfmt and Clippy. Building requires a C compiler, CMake and a native build tool
-supported by CMake. The Rust edition is 2024; the checked-in toolchain selects
-nightly.
+Rustfmt and Clippy. Building requires `git`, a C compiler, CMake and a native
+build tool supported by CMake. The Rust edition is 2024; the checked-in toolchain
+selects nightly.
 
 For a local checkout, add the high-level crate to your application's manifest:
 
@@ -50,26 +51,21 @@ position-independent static C library. It does not require a separately installe
 TA-Lib shared library or libclang/bindgen. On Unix, it also links the system math
 library.
 
-Source selection follows this order:
-
-1. `TA_LIB_DIR`, if set, must name a TA-Lib **source tree**, containing
-   `CMakeLists.txt`, `ABI.manifest` and `include/ta_libc.h`.
-2. `vendor/ta-lib`, if present in the workspace.
-3. The Cargo target directory's `vendor-cache/ta-lib` cache.
-4. A download from the upstream Git repository, using the build script's pinned
-   revision.
-
-Use the matching 0.8.3 source tree when overriding the source. `TA_LIB_DIR` is not
-an installed-library directory, and an override is not version-checked. For an
-offline build, prepare the source tree and Cargo dependencies beforehand:
+By default, `build.rs` automatically resolves the latest upstream `v*` release tag
+from `https://github.com/TA-Lib/ta-lib.git`, caches the checkout inside Cargo's
+`target/ta-lib-<tag>` directory, and compiles it statically:
 
 ```sh
-export TA_LIB_DIR=/path/to/ta-lib-source
 cargo build --workspace
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
-cargo test
+cargo test --workspace
 ```
+
+If you want to override the default automatic fetch (for example in an air-gapped
+environment), you may optionally set `TA_LIB_DIR=/path/to/ta-lib-source` pointing
+to a TA-Lib CMake source tree containing `CMakeLists.txt`, `ABI.manifest` and
+`include/ta_libc.h`.
 
 ## Runtime lifecycle
 
@@ -142,20 +138,16 @@ elements (or `input.len()` for a reusable upper bound). Only
 corresponding input offset and `OutRange.count` is the number of written
 elements.
 
-## Lookback and chart display shift
+## Lookback metadata
 
 `<indicator>_lookback` returns the warmup bar count for the supplied options.
-`<indicator>_display_shift` returns the chart placement shift for a zero-based
-output index. Display shift describes placement; it does not change the packed
-output layout.
 
 ```rust
-use ta_lib::{Error, initialize, rsi_display_shift, rsi_lookback};
+use ta_lib::{Error, initialize, rsi_lookback};
 
 fn main() -> Result<(), Error> {
     initialize()?;
     assert_eq!(rsi_lookback(Some(3))?, 3);
-    assert_eq!(rsi_display_shift(Some(3), 0)?, 0);
     Ok(())
 }
 ```
@@ -219,7 +211,7 @@ use ta_lib::abstract_api::{FuncHandle, InputParameterType, ParamHolder};
 fn main() -> Result<(), Error> {
     initialize()?;
     assert_eq!(abstract_api::groups()?.len(), 10);
-    assert_eq!(abstract_api::all_functions()?.len(), 237);
+    assert_eq!(abstract_api::all_functions()?.len(), 201);
     let handle = FuncHandle::get("SMA")?;
     let info = handle.info()?;
     assert_eq!(info.name, "SMA");
@@ -234,7 +226,6 @@ fn main() -> Result<(), Error> {
     params.set_opt_input_integer(0, 3)?;
     params.set_output_real(0, &mut output)?;
     assert_eq!(params.lookback()?, 2);
-    assert_eq!(params.display_shift(0)?, 0);
     let range = params.call(0, close.len() - 1)?;
     drop(params); // Release the output borrow before reading the buffer.
     assert_eq!(range.begin, 2);

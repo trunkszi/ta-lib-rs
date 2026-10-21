@@ -56,7 +56,7 @@ impl BeginIndex for (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, usize) {
 
 macro_rules! check_indicator {
     ($test:ident, $batch:ident, $single:ident, $into:ident, $single_into:ident,
-     $lookback:ident, $shift:ident, $stream:ident,
+     $lookback:ident, $_shift:ident, $stream:ident,
      [$($input:ident),+], [$($opt:expr),*], [$($out:ident: $ty:ty: $idx:tt),+], $extract:expr) => {
         #[test]
         fn $test() {
@@ -71,8 +71,6 @@ macro_rules! check_indicator {
             let begin = expected.begin_index();
             assert_eq!(begin, warmup);
             assert!(begin < data.len() - 1);
-            let display_shift = |idx| $shift($($opt,)* idx).unwrap();
-            $(assert_eq!(display_shift($idx), 0);)+
             $(let mut $out = vec![<$ty>::default(); data.len()];)+
             let range = $into($($input,)+ $($opt,)* $(&mut $out,)+).unwrap();
             assert_eq!(range.begin, begin);

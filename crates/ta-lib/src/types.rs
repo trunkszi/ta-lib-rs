@@ -44,10 +44,6 @@ pub enum MAType {
     Zlema = sys::TA_MAType::TA_MAType_ZLEMA as u32,
     /// Wilder's Running Moving Average (`TA_MAType_RMA`).
     Rma = sys::TA_MAType::TA_MAType_RMA as u32,
-    /// Variable Index Dynamic Average (`TA_MAType_VIDYA`).
-    Vidya = sys::TA_MAType::TA_MAType_VIDYA as u32,
-    /// Arnaud Legoux Moving Average (`TA_MAType_ALMA`).
-    Alma = sys::TA_MAType::TA_MAType_ALMA as u32,
 }
 
 /// Backward-compatible alias for [`MAType`].
@@ -92,8 +88,6 @@ impl From<MAType> for sys::TA_MAType {
             MAType::Default => Self::TA_MAType_DEFAULT,
             MAType::Zlema => Self::TA_MAType_ZLEMA,
             MAType::Rma => Self::TA_MAType_RMA,
-            MAType::Vidya => Self::TA_MAType_VIDYA,
-            MAType::Alma => Self::TA_MAType_ALMA,
         }
     }
 }
@@ -115,8 +109,6 @@ impl From<sys::TA_MAType> for MAType {
             sys::TA_MAType::TA_MAType_DEFAULT => Self::Default,
             sys::TA_MAType::TA_MAType_ZLEMA => Self::Zlema,
             sys::TA_MAType::TA_MAType_RMA => Self::Rma,
-            sys::TA_MAType::TA_MAType_VIDYA => Self::Vidya,
-            sys::TA_MAType::TA_MAType_ALMA => Self::Alma,
         }
     }
 }

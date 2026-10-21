@@ -376,6 +376,121 @@ pub fn positive_directional_indicator(
     plus_di(high, low, close, time_period)
 }
 
+#[cfg(not(feature = "release-tag"))]
+crate::ta_indicators! {
+    /// Compute ASI (Wilder Accumulative Swing Index).
+    asi => ASI, AsiStream {
+        inputs: [open, high, low, close],
+        opts: [limit_move: f64],
+        outs: [outreal: f64],
+    };
+
+    /// Compute CG (Center of Gravity Oscillator).
+    cg => CG, CgStream {
+        inputs: [inreal],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute CHOP (Choppiness Index).
+    chop => CHOP, ChopStream {
+        inputs: [high, low, close],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute CHOPTR (Choppiness Index (True Range Box)).
+    choptr => CHOPTR, ChoptrStream {
+        inputs: [high, low, close],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute CRSI (Connors Relative Strength Index).
+    crsi => CRSI, CrsiStream {
+        inputs: [inreal],
+        opts: [time_period: i32, streak_period: i32, rank_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute CTI (Correlation Trend Indicator).
+    cti => CTI, CtiStream {
+        inputs: [inreal],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute DOSC (Derivative Oscillator).
+    dosc => DOSC, DoscStream {
+        inputs: [inreal],
+        opts: [time_period: i32, first_smoothing_period: i32, second_smoothing_period: i32, signal_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute FISHER (Fisher Transform).
+    fisher => FISHER, FisherStream {
+        inputs: [high, low],
+        opts: [time_period: i32],
+        outs: [outfisher: f64, outtrigger: f64],
+    };
+
+    /// Compute IBS (Internal Bar Strength).
+    ibs => IBS, IbsStream {
+        inputs: [high, low, close],
+        opts: [],
+        outs: [outreal: f64],
+    };
+
+    /// Compute KST (Know Sure Thing (Pring)).
+    kst => KST, KstStream {
+        inputs: [inreal],
+        opts: [roc_1_period: i32, roc_2_period: i32, roc_3_period: i32, roc_4_period: i32, sma_1_period: i32, sma_2_period: i32, sma_3_period: i32, sma_4_period: i32, signal_period: i32],
+        outs: [outkst: f64, outkstsignal: f64],
+    };
+
+    /// Compute KSTEXT (Know Sure Thing with controllable MA type).
+    kstext => KSTEXT, KstextStream {
+        inputs: [inreal],
+        opts: [roc_1_period: i32, roc_2_period: i32, roc_3_period: i32, roc_4_period: i32, ma_1_period: i32, ma_2_period: i32, ma_3_period: i32, ma_4_period: i32, signal_period: i32, roc_ma: MAType, signal_ma: MAType],
+        outs: [outkst: f64, outkstsignal: f64],
+    };
+
+    /// Compute PSO (Premier Stochastic Oscillator).
+    pso => PSO, PsoStream {
+        inputs: [high, low, close],
+        opts: [fast_k_period: i32, ema_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute SI (Wilder Swing Index).
+    si => SI, SiStream {
+        inputs: [open, high, low, close],
+        opts: [limit_move: f64],
+        outs: [outreal: f64],
+    };
+
+    /// Compute SQZMOM (Squeeze Momentum and Level).
+    sqzmom => SQZMOM, SqzmomStream {
+        inputs: [high, low, close],
+        opts: [bb_period: i32, deviations: f64, kc_period: i32, wide_factor: f64, normal_factor: f64, narrow_factor: f64],
+        outs: [outmomentum: f64, outsqueeze: i32],
+    };
+
+    /// Compute STC (Schaff Trend Cycle).
+    stc => STC, StcStream {
+        inputs: [inreal],
+        opts: [fast_period: i32, slow_period: i32, cycle_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute WAVETREND (WaveTrend Oscillator).
+    wavetrend => WAVETREND, WavetrendStream {
+        inputs: [high, low, close],
+        opts: [channel_period: i32, average_period: i32, signal_period: i32],
+        outs: [outwt1: f64, outwt2: f64],
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

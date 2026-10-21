@@ -1,33 +1,34 @@
 # ta-lib-rs
 
-Rust 2024 bindings for the latest TA-Lib release tag (**v0.8.1**), covering all
-**201 indicators** in its 10 function groups. The workspace provides typed batch
-and streaming APIs, plus a reflective Abstract API for selecting indicators at
-runtime.
+Rust 2024 bindings for the upstream TA-Lib C library, covering all **237
+indicators** in its 10 function groups on the default `main` branch (or **201
+indicators** when targeting the latest stable release tag via the `release-tag`
+Cargo feature). The workspace provides typed batch and streaming APIs, plus a
+reflective Abstract API for selecting indicators at runtime.
 
 ## Workspace architecture
 
 | Crate | Responsibility |
 | --- | --- |
-| [`ta-lib-sys`](crates/ta-lib-sys) | Fetches the latest upstream TA-Lib release tag into `target/`, builds the C library statically with CMake, and generates raw FFI declarations from `ABI.manifest`. |
-| [`ta-lib-macros`](crates/ta-lib-macros) | Implements `ta_indicators!`, generating typed batch, caller-buffer, `lookback` and RAII streaming bindings. |
+| [`ta-lib-sys`](crates/ta-lib-sys) | Fetches upstream TA-Lib into `target/`, builds the C library statically with CMake, and generates raw FFI declarations from `ABI.manifest`. |
+| [`ta-lib-macros`](crates/ta-lib-macros) | Implements `ta_indicators!`, generating typed batch, caller-buffer, `lookback`, `display_shift` and RAII streaming bindings. |
 | [`ta-lib`](crates/ta-lib) | Exposes safe indicator functions, domain types, errors, runtime configuration and the Abstract API. |
 
-All 201 indicators have typed batch and streaming bindings:
+All indicators have typed batch and streaming bindings:
 
-| Function group | Indicators |
-| --- | ---: |
-| Cycle Indicators | 5 |
-| Math Operators | 12 |
-| Math Transform | 15 |
-| Momentum Indicators | 47 |
-| Overlap Studies | 25 |
-| Pattern Recognition | 61 |
-| Price Transform | 6 |
-| Statistic Functions | 11 |
-| Volatility Indicators | 7 |
-| Volume Indicators | 12 |
-| **Total** | **201** |
+| Function group | `main` (default) | `release-tag` (`v0.8.1`) |
+| --- | ---: | ---: |
+| Cycle Indicators | 8 | 5 |
+| Math Operators | 12 | 12 |
+| Math Transform | 15 | 15 |
+| Momentum Indicators | 63 | 47 |
+| Overlap Studies | 34 | 25 |
+| Pattern Recognition | 61 | 61 |
+| Price Transform | 6 | 6 |
+| Statistic Functions | 13 | 11 |
+| Volatility Indicators | 11 | 7 |
+| Volume Indicators | 14 | 12 |
+| **Total** | **237** | **201** |
 
 Indicator functions and stream types are re-exported at the `ta_lib` crate root;
 reflective functions live in `ta_lib::abstract_api`.
@@ -43,7 +44,11 @@ For a local checkout, add the high-level crate to your application's manifest:
 
 ```toml
 [dependencies]
+# Default: tracks upstream `main` branch (237 indicators, cached in `target/ta-lib-main`)
 ta-lib = { path = "/path/to/ta-lib-rs/crates/ta-lib" }
+
+# Optional: track the latest upstream `v*` release tag (e.g. `v0.8.1`, 201 indicators)
+# ta-lib = { path = "/path/to/ta-lib-rs/crates/ta-lib", features = ["release-tag"] }
 ```
 
 `ta-lib-sys` disables shared-library builds and development tools and enables a
@@ -51,12 +56,14 @@ position-independent static C library. It does not require a separately installe
 TA-Lib shared library or libclang/bindgen. On Unix, it also links the system math
 library.
 
-By default, `build.rs` automatically resolves the latest upstream `v*` release tag
-from `https://github.com/TA-Lib/ta-lib.git`, caches the checkout inside Cargo's
-`target/ta-lib-<tag>` directory, and compiles it statically:
+By default, `build.rs` automatically clones the upstream `main` branch from
+`https://github.com/TA-Lib/ta-lib.git` into Cargo's `target/ta-lib-main`
+directory and compiles it statically. Enabling `--features release-tag` resolves
+the latest `v*` release tag instead and caches it under `target/ta-lib-<tag>`:
 
 ```sh
 cargo build --workspace
+cargo build --workspace --features release-tag
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
@@ -211,7 +218,8 @@ use ta_lib::abstract_api::{FuncHandle, InputParameterType, ParamHolder};
 fn main() -> Result<(), Error> {
     initialize()?;
     assert_eq!(abstract_api::groups()?.len(), 10);
-    assert_eq!(abstract_api::all_functions()?.len(), 201);
+    let expected = if cfg!(feature = "release-tag") { 201 } else { 237 };
+    assert_eq!(abstract_api::all_functions()?.len(), expected);
     let handle = FuncHandle::get("SMA")?;
     let info = handle.info()?;
     assert_eq!(info.name, "SMA");

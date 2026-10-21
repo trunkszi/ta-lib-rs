@@ -21,7 +21,7 @@ fn init() {
     INIT.call_once(|| ta_lib::initialize().expect("initialize TA-Lib"));
 }
 
-/// The reflective tables expose all ten groups, all 201 functions, and the XML payload.
+/// The reflective tables expose all ten groups, all functions, and the XML payload.
 #[test]
 fn catalog_exposes_all_groups_and_functions() {
     init();
@@ -30,7 +30,12 @@ fn catalog_exposes_all_groups_and_functions() {
     assert!(groups.iter().any(|g| g == "Overlap Studies"));
     assert!(groups.iter().any(|g| g == "Momentum Indicators"));
     let mut functions = all_functions().expect("function catalog");
-    assert_eq!(functions.len(), 201);
+    let expected_count = if cfg!(feature = "release-tag") {
+        201
+    } else {
+        237
+    };
+    assert_eq!(functions.len(), expected_count);
     assert!(functions.iter().any(|name| name == "SMA"));
     let overlap = functions_in_group("Overlap Studies").expect("overlap");
     assert!(overlap.iter().any(|name| name == "SMA"));
@@ -307,6 +312,29 @@ fn set_output_integer_matches_static_maxindex() {
     assert_eq!(range.count, expected.len());
     drop(holder);
     assert_eq!(&output[..range.count], expected.as_slice());
+}
+
+/// Display shift is zero for SMA, `kijun` for the Ichimoku spans, and errors out of range.
+#[cfg(not(feature = "release-tag"))]
+#[test]
+fn display_shift_reports_native_placement() {
+    init();
+    let handle = FuncHandle::get("SMA").expect("SMA handle");
+    let mut holder = ParamHolder::new(&handle).expect("param holder");
+    holder.set_opt_input_integer(0, 3).expect("set period");
+    assert_eq!(holder.display_shift(0), Ok(0));
+    assert_eq!(holder.display_shift(1), Err(Error::BadParam));
+
+    let handle = FuncHandle::get("ICHIMOKU").expect("ICHIMOKU handle");
+    let mut holder = ParamHolder::new(&handle).expect("param holder");
+    holder.set_opt_input_integer(0, 9).expect("tenkan");
+    holder.set_opt_input_integer(1, 26).expect("kijun");
+    holder.set_opt_input_integer(2, 52).expect("senkou B");
+    assert_eq!(holder.display_shift(0), Ok(0));
+    assert_eq!(holder.display_shift(1), Ok(0));
+    assert_eq!(holder.display_shift(2), Ok(26));
+    assert_eq!(holder.display_shift(3), Ok(26));
+    assert_eq!(holder.display_shift(4), Err(Error::BadParam));
 }
 
 /// Invalid names, indices, and input kinds fail explicitly.

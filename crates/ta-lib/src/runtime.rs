@@ -204,6 +204,22 @@ pub fn version_extra() -> &'static str {
     static_c_str(unsafe { sys::TA_GetVersionExtra() })
 }
 
+/// Query runtime capability information by key (`TA_GetRuntimeInfo`).
+///
+/// # Errors
+///
+/// Returns an [`Error`] if `key` contains an interior NUL byte or is unknown to TA-Lib.
+#[cfg(not(feature = "release-tag"))]
+pub fn runtime_info(key: &str) -> Result<i32, Error> {
+    let _state = configured_runtime()?;
+    let c_key = std::ffi::CString::new(key).map_err(|_| Error::InteriorNul)?;
+    let mut val: i32 = 0;
+    // SAFETY: `c_key` is a valid NUL-terminated C string and `val` is a valid stack i32.
+    let rc = unsafe { sys::TA_GetRuntimeInfo(c_key.as_ptr(), &raw mut val) };
+    check_ret_code(rc)?;
+    Ok(val)
+}
+
 /// Set the unstable warmup period stripped from recursive indicators (`TA_SetUnstablePeriod`).
 ///
 /// # Errors

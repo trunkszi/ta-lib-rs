@@ -101,6 +101,23 @@ pub fn on_balance_volume(
     obv(inreal, volume)
 }
 
+#[cfg(not(feature = "release-tag"))]
+crate::ta_indicators! {
+    /// Compute EMV (Arms Ease of Movement).
+    emv => EMV, EmvStream {
+        inputs: [high, low, volume],
+        opts: [time_period: i32, volume_divisor: f64],
+        outs: [outreal: f64],
+    };
+
+    /// Compute KVO (Klinger Volume Oscillator).
+    kvo => KVO, KvoStream {
+        inputs: [high, low, close, volume],
+        opts: [fast_period: i32, slow_period: i32, signal_period: i32],
+        outs: [outkvo: f64, outkvosignal: f64],
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

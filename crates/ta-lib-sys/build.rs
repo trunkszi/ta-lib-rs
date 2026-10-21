@@ -11,7 +11,19 @@ use std::{
 };
 
 const REPOSITORY: &str = "https://github.com/TA-Lib/ta-lib.git";
+const DEFAULT_BRANCH: &str = "main";
 const DEFAULT_TAG: &str = "v0.8.1";
+
+const EXPECTED_MIN_FUNCTIONS: usize = if cfg!(feature = "release-tag") {
+    2_451
+} else {
+    3_122
+};
+const EXPECTED_MIN_STREAMS: usize = if cfg!(feature = "release-tag") {
+    201
+} else {
+    237
+};
 
 fn is_source_tree(path: &Path) -> bool {
     path.join("CMakeLists.txt").is_file()
@@ -126,6 +138,75 @@ fn verify_cached_tag(source: &Path, expected_tag: &str) {
     }
 }
 
+fn verify_cached_branch(source: &Path, expected_branch: &str) {
+    if source.join(".git").exists() {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(source)
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .output()
+            .expect("verify TA-Lib branch");
+        assert!(
+            output.status.success(),
+            "failed to verify TA-Lib branch at {}",
+            source.display()
+        );
+        let actual = String::from_utf8(output.stdout)
+            .expect("UTF-8 branch")
+            .trim()
+            .to_owned();
+        assert_eq!(
+            actual,
+            expected_branch,
+            "TA-Lib cached branch mismatch at {}",
+            source.display()
+        );
+    }
+}
+
+fn clone_into_target(target_dir: &Path, git_ref: &str, verify_tag: bool) -> PathBuf {
+    let cache = target_dir.join(format!("ta-lib-{git_ref}"));
+    if is_source_tree(&cache) {
+        if verify_tag {
+            verify_cached_tag(&cache, git_ref);
+        } else {
+            verify_cached_branch(&cache, git_ref);
+        }
+        return cache;
+    }
+
+    let staging = target_dir.join(format!("ta-lib-{git_ref}.fetch-{}", std::process::id()));
+    drop(fs::remove_dir_all(&staging));
+    let status = Command::new("git")
+        .args(["clone", "--depth", "1", "--branch", git_ref, REPOSITORY])
+        .arg(&staging)
+        .status()
+        .expect("run git clone for TA-Lib");
+    assert!(
+        status.success(),
+        "failed to clone TA-Lib ref {git_ref} from {REPOSITORY}"
+    );
+    if verify_tag {
+        verify_cached_tag(&staging, git_ref);
+    } else {
+        verify_cached_branch(&staging, git_ref);
+    }
+    if let Err(err) = fs::rename(&staging, &cache) {
+        assert!(
+            is_source_tree(&cache),
+            "failed to move staged TA-Lib clone into {}: {err}",
+            cache.display()
+        );
+        drop(fs::remove_dir_all(&staging));
+    }
+    if verify_tag {
+        verify_cached_tag(&cache, git_ref);
+    } else {
+        verify_cached_branch(&cache, git_ref);
+    }
+    cache
+}
+
 fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
     if let Ok(configured) = env::var("TA_LIB_DIR") {
         let trimmed = configured.trim();
@@ -143,35 +224,12 @@ fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
 
     let target_dir = target_root(manifest, out_dir);
     fs::create_dir_all(&target_dir).expect("create target directory");
-    let tag = resolve_latest_release_tag(&target_dir);
-    let cache = target_dir.join(format!("ta-lib-{tag}"));
-    if is_source_tree(&cache) {
-        verify_cached_tag(&cache, &tag);
-        return cache;
+    if cfg!(feature = "release-tag") {
+        let tag = resolve_latest_release_tag(&target_dir);
+        clone_into_target(&target_dir, &tag, true)
+    } else {
+        clone_into_target(&target_dir, DEFAULT_BRANCH, false)
     }
-
-    let staging = target_dir.join(format!("ta-lib-{tag}.fetch-{}", std::process::id()));
-    drop(fs::remove_dir_all(&staging));
-    let status = Command::new("git")
-        .args(["clone", "--depth", "1", "--branch", &tag, REPOSITORY])
-        .arg(&staging)
-        .status()
-        .expect("run git clone for TA-Lib");
-    assert!(
-        status.success(),
-        "failed to clone TA-Lib tag {tag} from {REPOSITORY}"
-    );
-    verify_cached_tag(&staging, &tag);
-    if let Err(err) = fs::rename(&staging, &cache) {
-        assert!(
-            is_source_tree(&cache),
-            "failed to move staged TA-Lib clone into {}: {err}",
-            cache.display()
-        );
-        drop(fs::remove_dir_all(&staging));
-    }
-    verify_cached_tag(&cache, &tag);
-    cache
 }
 
 fn map_c_type(c_ty: &str, is_return: bool) -> String {
@@ -271,13 +329,13 @@ fn generate_bindings(source: &Path, out_dir: &Path) {
     }
 
     assert!(
-        functions.len() >= 2_451,
-        "unsupported TA-Lib ABI function count: {}",
+        functions.len() >= EXPECTED_MIN_FUNCTIONS,
+        "unsupported TA-Lib ABI function count: {} (expected >= {EXPECTED_MIN_FUNCTIONS})",
         functions.len()
     );
     assert!(
-        stream_types.len() >= 201,
-        "unsupported TA-Lib ABI stream count: {}",
+        stream_types.len() >= EXPECTED_MIN_STREAMS,
+        "unsupported TA-Lib ABI stream count: {} (expected >= {EXPECTED_MIN_STREAMS})",
         stream_types.len()
     );
 

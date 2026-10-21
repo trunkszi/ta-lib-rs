@@ -109,6 +109,26 @@ const UNSTABLE_IDS: &[ta::FuncUnstId] = &[
     ta::FuncUnstId::TA_FUNC_UNST_RMA,
     ta::FuncUnstId::TA_FUNC_UNST_HA,
     ta::FuncUnstId::TA_FUNC_UNST_RVI,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_FRAMA,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_MCGD,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_VIDYA,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_STC,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_SWAK_GAUSS,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_SWAK_BUTTER,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_SWAK_HP,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_SWAK_2PHP,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_SWAK_BP,
+    #[cfg(not(feature = "release-tag"))]
+    ta::FuncUnstId::TA_FUNC_UNST_FISHER,
 ];
 
 #[test]
@@ -376,7 +396,12 @@ fn abstract_abi_allocates_and_inspects_all_201_functions() {
             }
         }
     }
-    assert_eq!(functions.len(), 201);
+    let expected_funcs = if cfg!(feature = "release-tag") {
+        201
+    } else {
+        237
+    };
+    assert_eq!(functions.len(), expected_funcs);
     assert_eq!(functions.len(), sys::GENERATED_STREAM_TYPE_COUNT);
     assert!(functions.contains("SMA") && functions.contains("CDLDOJI"));
 }

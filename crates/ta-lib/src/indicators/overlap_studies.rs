@@ -226,6 +226,72 @@ pub fn bollinger_bands(
     )
 }
 
+#[cfg(not(feature = "release-tag"))]
+crate::ta_indicators! {
+    /// Compute ALMA (Arnaud Legoux Moving Average).
+    alma => ALMA, AlmaStream {
+        inputs: [inreal],
+        opts: [time_period: i32, sigma: f64, offset: f64],
+        outs: [outreal: f64],
+    };
+
+    /// Compute CKSP (Chande Kroll Stop).
+    cksp => CKSP, CkspStream {
+        inputs: [high, low, close],
+        opts: [time_period: i32, multiplier: f64, stop_period: i32],
+        outs: [outhighstop: f64, outlowstop: f64],
+    };
+
+    /// Compute FRAMA (Fractal Adaptive Moving Average).
+    frama => FRAMA, FramaStream {
+        inputs: [high, low],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute ICHIMOKU (Ichimoku Kinko Hyo).
+    ichimoku => ICHIMOKU, IchimokuStream {
+        inputs: [high, low],
+        opts: [tenkan_period: i32, kijun_period: i32, senkou_b_period: i32],
+        outs: [outtenkansen: f64, outkijunsen: f64, outsenkouspana: f64, outsenkouspanb: f64],
+    };
+
+    /// Compute MCGD (McGinley Dynamic).
+    mcgd => MCGD, McgdStream {
+        inputs: [inreal],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute SWAK_BUTTER (Swiss Army Knife - Butterworth Filter).
+    swak_butter => SWAK_BUTTER, SwakButterStream {
+        inputs: [inreal],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute SWAK_GAUSS (Swiss Army Knife - Gaussian Filter).
+    swak_gauss => SWAK_GAUSS, SwakGaussStream {
+        inputs: [inreal],
+        opts: [time_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute VIDYA (Variable Index Dynamic Average).
+    vidya => VIDYA, VidyaStream {
+        inputs: [inreal],
+        opts: [time_period: i32, cmo_period: i32],
+        outs: [outreal: f64],
+    };
+
+    /// Compute ZIGZAG (Zig Zag).
+    zigzag => ZIGZAG, ZigzagStream {
+        inputs: [high, low],
+        opts: [sensitivity: f64, minimum_trend_length: i32],
+        outs: [outzigzag: f64, outtrend: i32, outpivotidx: i32],
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

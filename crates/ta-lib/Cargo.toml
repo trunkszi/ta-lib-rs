@@ -9,6 +9,10 @@ description = "Safe, ergonomic Rust wrapper for the latest upstream TA-Lib C lib
 [lib]
 bench = false
 
+[features]
+default = []
+release-tag = ["ta-lib-sys/release-tag"]
+
 [dependencies]
 ta-lib-sys = { workspace = true }
 ta-lib-macros = { workspace = true }

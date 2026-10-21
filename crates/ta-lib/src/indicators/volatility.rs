@@ -95,6 +95,37 @@ pub fn true_range(
     trange(high, low, close)
 }
 
+#[cfg(not(feature = "release-tag"))]
+crate::ta_indicators! {
+    /// Compute BBW (Bollinger BandWidth).
+    bbw => BBW, BbwStream {
+        inputs: [inreal],
+        opts: [time_period: i32, deviations_up: f64, deviations_down: f64, ma_type: MAType],
+        outs: [outreal: f64],
+    };
+
+    /// Compute PERCENTB (Bollinger Bands %B).
+    percentb => PERCENTB, PercentbStream {
+        inputs: [inreal],
+        opts: [time_period: i32, deviations_up: f64, deviations_down: f64, ma_type: MAType],
+        outs: [outreal: f64],
+    };
+
+    /// Compute ROGERSSATCHELL (Rogers-Satchell Volatility).
+    rogerssatchell => ROGERSSATCHELL, RogerssatchellStream {
+        inputs: [open, high, low, close],
+        opts: [time_period: i32, annualization: f64],
+        outs: [outreal: f64],
+    };
+
+    /// Compute RVIR (Relative Volatility Index, refined high/low form).
+    rvir => RVIR, RvirStream {
+        inputs: [high, low],
+        opts: [time_period: i32, stddev_period: i32],
+        outs: [outreal: f64],
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

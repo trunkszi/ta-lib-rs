@@ -7,6 +7,10 @@ repository.workspace = true
 description = "Static C build and FFI bindings for the latest upstream TA-Lib"
 links = "ta_lib"
 
+[features]
+default = []
+release-tag = []
+
 [build-dependencies]
 cmake = { workspace = true }
 

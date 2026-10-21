@@ -71,6 +71,11 @@ macro_rules! check_indicator {
             let begin = expected.begin_index();
             assert_eq!(begin, warmup);
             assert!(begin < data.len() - 1);
+            #[cfg(not(feature = "release-tag"))]
+            {
+                let display_shift = |idx| $_shift($($opt,)* idx).unwrap();
+                $(assert_eq!(display_shift($idx), 0);)+
+            }
             $(let mut $out = vec![<$ty>::default(); data.len()];)+
             let range = $into($($input,)+ $($opt,)* $(&mut $out,)+).unwrap();
             assert_eq!(range.begin, begin);

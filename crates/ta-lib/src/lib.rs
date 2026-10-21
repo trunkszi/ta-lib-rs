@@ -1,5 +1,7 @@
 //! High-level, safe Rust wrapper for the [TA-Lib](https://ta-lib.org/) technical analysis library.
 
+extern crate self as ta_lib;
+
 pub mod abstract_api;
 pub mod error;
 pub mod indicators;

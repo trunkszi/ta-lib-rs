@@ -26,18 +26,18 @@ fn opt_rust_type(kind: OptKind) -> TokenStream {
     match kind {
         OptKind::Int => quote!(Option<usize>),
         OptKind::Real => quote!(Option<f64>),
-        OptKind::MaType => quote!(Option<crate::types::MAType>),
+        OptKind::MaType => quote!(Option<::ta_lib::types::MAType>),
     }
 }
 
 fn opt_c_expr(name: &Ident, kind: OptKind) -> TokenStream {
     match kind {
         OptKind::Int => quote! { match #name {
-            Some(v) => i32::try_from(v).map_err(|_| crate::error::Error::BadParam)?,
-            None => ta_lib_sys::TA_INTEGER_DEFAULT,
+            Some(v) => i32::try_from(v).map_err(|_| ::ta_lib::error::Error::BadParam)?,
+            None => ::ta_lib::sys::TA_INTEGER_DEFAULT,
         } },
-        OptKind::Real => quote!(#name.unwrap_or(ta_lib_sys::TA_REAL_DEFAULT)),
-        OptKind::MaType => quote!(#name.unwrap_or(crate::types::MAType::Default).into()),
+        OptKind::Real => quote!(#name.unwrap_or(::ta_lib::sys::TA_REAL_DEFAULT)),
+        OptKind::MaType => quote!(#name.unwrap_or(::ta_lib::types::MAType::Default).into()),
     }
 }
 
@@ -117,22 +117,22 @@ fn emit_metadata(spec: &IndicatorSpec) -> TokenStream {
         /// Return the warmup bar count for the configured indicator.
         /// # Errors
         /// Returns `BadParam` for invalid parameters or a negative native lookback.
-        pub fn #fn_lookback(#(#opt_params_decl),*) -> Result<usize, crate::error::Error> {
+        pub fn #fn_lookback(#(#opt_params_decl),*) -> Result<usize, ::ta_lib::error::Error> {
             #(#opt_c_lets)*
             // SAFETY: The native lookback accepts these scalar parameters.
-            let lb = unsafe { ta_lib_sys::#c_lookback(#(#opt_c_vars),*) };
-            usize::try_from(lb).map_err(|_| crate::error::Error::BadParam)
+            let lb = unsafe { ::ta_lib::sys::#c_lookback(#(#opt_c_vars),*) };
+            usize::try_from(lb).map_err(|_| ::ta_lib::error::Error::BadParam)
         }
         /// Return the chart display shift for a zero-based output index.
         /// # Errors
         /// Returns `BadParam` for invalid parameters or output indices.
         #[cfg(not(feature = "stable"))]
-        pub fn #fn_display_shift(#(#opt_params_decl,)* output_idx: usize) -> Result<i32, crate::error::Error> {
+        pub fn #fn_display_shift(#(#opt_params_decl,)* output_idx: usize) -> Result<i32, ::ta_lib::error::Error> {
             #(#opt_c_lets)*
-            let index = i32::try_from(output_idx).map_err(|_| crate::error::Error::BadParam)?;
+            let index = i32::try_from(output_idx).map_err(|_| ::ta_lib::error::Error::BadParam)?;
             // SAFETY: The native metadata query accepts scalar parameters.
-            let shift = unsafe { ta_lib_sys::#c_display_shift(#(#opt_c_vars,)* index) };
-            if shift == ta_lib_sys::TA_INTEGER_DEFAULT { return Err(crate::error::Error::BadParam); }
+            let shift = unsafe { ::ta_lib::sys::#c_display_shift(#(#opt_c_vars,)* index) };
+            if shift == ::ta_lib::sys::TA_INTEGER_DEFAULT { return Err(::ta_lib::error::Error::BadParam); }
             Ok(shift)
         }
     }
@@ -179,28 +179,28 @@ fn emit_batch(spec: &IndicatorSpec, single: bool) -> TokenStream {
         /// Returns an error for empty/mismatched inputs, invalid options, short outputs or native failures.
         #[allow(clippy::too_many_arguments, clippy::type_complexity)]
         pub fn #fn_into(#(#in_names: &[#input_type],)* #(#opt_params_decl,)* #(#out_slice_params,)*)
-            -> Result<crate::types::OutRange, crate::error::Error> {
+            -> Result<::ta_lib::types::OutRange, ::ta_lib::error::Error> {
             let len = #first_in.len();
-            if len == 0 { return Err(crate::error::Error::EmptyInput); }
+            if len == 0 { return Err(::ta_lib::error::Error::EmptyInput); }
             #(if #rest_ins.len() != len {
-                return Err(crate::error::Error::MismatchedInputLength { expected: len, actual: #rest_ins.len() });
+                return Err(::ta_lib::error::Error::MismatchedInputLength { expected: len, actual: #rest_ins.len() });
             })*
             let lb = #fn_lookback(#(#opt_names),*)?;
             let required = len.saturating_sub(lb);
             #(if #out_names.len() < required {
-                return Err(crate::error::Error::OutputBufferTooSmall { required, actual: #out_names.len() });
+                return Err(::ta_lib::error::Error::OutputBufferTooSmall { required, actual: #out_names.len() });
             })*
             #(#opt_c_lets)*
-            let end = i32::try_from(len - 1).map_err(|_| crate::error::Error::BadParam)?;
+            let end = i32::try_from(len - 1).map_err(|_| ::ta_lib::error::Error::BadParam)?;
             let (mut begin, mut count) = (0_i32, 0_i32);
             // SAFETY: Inputs cover the range, outputs cover its maximum lookback-adjusted size.
             // Empty output slices supply non-null dangling pointers when no output is possible.
-            let rc = unsafe { ta_lib_sys::#c_batch(0, end, #(#in_names.as_ptr(),)* #(#opt_c_vars,)*
+            let rc = unsafe { ::ta_lib::sys::#c_batch(0, end, #(#in_names.as_ptr(),)* #(#opt_c_vars,)*
                 &raw mut begin, &raw mut count, #(#out_names.as_mut_ptr(),)*) };
-            crate::error::check_ret_code(rc)?;
-            Ok(crate::types::OutRange {
-                begin: usize::try_from(begin).map_err(|_| crate::error::Error::BadParam)?,
-                count: usize::try_from(count).map_err(|_| crate::error::Error::BadParam)?,
+            ::ta_lib::error::check_ret_code(rc)?;
+            Ok(::ta_lib::types::OutRange {
+                begin: usize::try_from(begin).map_err(|_| ::ta_lib::error::Error::BadParam)?,
+                count: usize::try_from(count).map_err(|_| ::ta_lib::error::Error::BadParam)?,
             })
         }
         #(#attrs)*
@@ -208,7 +208,7 @@ fn emit_batch(spec: &IndicatorSpec, single: bool) -> TokenStream {
         /// Returns an error for empty/mismatched inputs, invalid options or native failures.
         #[allow(clippy::too_many_arguments, clippy::type_complexity)]
         pub fn #fn_name(#(#in_names: &[#input_type],)* #(#opt_params_decl,)*)
-            -> Result<(#(Vec<#out_types>,)* usize), crate::error::Error> {
+            -> Result<(#(Vec<#out_types>,)* usize), ::ta_lib::error::Error> {
             #(let mut #out_names: Vec<#out_types> = vec![Default::default(); #first_in.len()];)*
             let range = #fn_into(#(#in_names,)* #(#opt_names,)* #(&mut #out_names,)*)?;
             #(#out_names.truncate(range.count);)*
@@ -263,7 +263,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
         /// RAII streaming state machine for incremental bar-by-bar calculation.
         #[derive(Debug)]
         pub struct #stream_ident {
-            ptr: core::ptr::NonNull<ta_lib_sys::#c_stream_ty>,
+            ptr: core::ptr::NonNull<::ta_lib::sys::#c_stream_ty>,
         }
 
         // SAFETY: Each TA-Lib stream instance owns an independent heap state block and is safe to move across threads.
@@ -279,26 +279,26 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             pub fn open(
                 #(#in_names: &[f64],)*
                 #(#opt_params_decl,)*
-            ) -> Result<(Self, #stream_val_ty), crate::error::Error> {
+            ) -> Result<(Self, #stream_val_ty), ::ta_lib::error::Error> {
                 let len = #first_in.len();
                 if len == 0 {
-                    return Err(crate::error::Error::EmptyInput);
+                    return Err(::ta_lib::error::Error::EmptyInput);
                 }
                 #(
                     if #rest_ins.len() != len {
-                        return Err(crate::error::Error::MismatchedInputLength {
+                        return Err(::ta_lib::error::Error::MismatchedInputLength {
                             expected: len,
                             actual: #rest_ins.len(),
                         });
                     }
                 )*
                 #(#opt_c_lets)*
-                let hist_len = i32::try_from(len).map_err(|_| crate::error::Error::BadParam)?;
-                let mut raw: *mut ta_lib_sys::#c_stream_ty = core::ptr::null_mut();
+                let hist_len = i32::try_from(len).map_err(|_| ::ta_lib::error::Error::BadParam)?;
+                let mut raw: *mut ::ta_lib::sys::#c_stream_ty = core::ptr::null_mut();
                 #(#stream_val_init)*
                 // SAFETY: Input slices have `len` elements and output pointers reference valid stack variables.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_open(
+                    ::ta_lib::sys::#c_open(
                         &raw mut raw,
                         #(#in_names.as_ptr(),)*
                         hist_len,
@@ -306,8 +306,8 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                         #(&raw mut #out_names,)*
                     )
                 };
-                crate::error::check_ret_code(ret_code)?;
-                let ptr = core::ptr::NonNull::new(raw).ok_or(crate::error::Error::AllocErr)?;
+                ::ta_lib::error::check_ret_code(ret_code)?;
+                let ptr = core::ptr::NonNull::new(raw).ok_or(::ta_lib::error::Error::AllocErr)?;
                 Ok((Self { ptr }, #stream_val_tuple))
             }
 
@@ -321,38 +321,38 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                 #(#in_names: &[f64],)*
                 #(#opt_params_decl,)*
                 #(#out_slice_params,)*
-            ) -> Result<(Self, crate::types::OutRange), crate::error::Error> {
+            ) -> Result<(Self, ::ta_lib::types::OutRange), ::ta_lib::error::Error> {
                 let len = #first_in.len();
                 if len == 0 {
-                    return Err(crate::error::Error::EmptyInput);
+                    return Err(::ta_lib::error::Error::EmptyInput);
                 }
                 #(
                     if #rest_ins.len() != len {
-                        return Err(crate::error::Error::MismatchedInputLength {
+                        return Err(::ta_lib::error::Error::MismatchedInputLength {
                             expected: len,
                             actual: #rest_ins.len(),
                         });
                     }
                 )*
                 let lb = #fn_lookback(#(#opt_names),*)?;
-                if len <= lb { return Err(crate::error::Error::InsufficientHistory); }
+                if len <= lb { return Err(::ta_lib::error::Error::InsufficientHistory); }
                 let required = len - lb;
                 #(
                     if #out_names.len() < required {
-                        return Err(crate::error::Error::OutputBufferTooSmall {
+                        return Err(::ta_lib::error::Error::OutputBufferTooSmall {
                             required,
                             actual: #out_names.len(),
                         });
                     }
                 )*
                 #(#opt_c_lets)*
-                let hist_len = i32::try_from(len).map_err(|_| crate::error::Error::BadParam)?;
-                let mut raw: *mut ta_lib_sys::#c_stream_ty = core::ptr::null_mut();
+                let hist_len = i32::try_from(len).map_err(|_| ::ta_lib::error::Error::BadParam)?;
+                let mut raw: *mut ::ta_lib::sys::#c_stream_ty = core::ptr::null_mut();
                 let mut out_begin: i32 = 0;
                 let mut out_count: i32 = 0;
                 // SAFETY: Inputs cover the history; outputs hold its lookback-adjusted count.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_open_and_fill(
+                    ::ta_lib::sys::#c_open_and_fill(
                         &raw mut raw,
                         #(#in_names.as_ptr(),)*
                         hist_len,
@@ -362,14 +362,14 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                         #(#out_names.as_mut_ptr(),)*
                     )
                 };
-                crate::error::check_ret_code(ret_code)?;
-                let ptr = core::ptr::NonNull::new(raw).ok_or(crate::error::Error::AllocErr)?;
+                ::ta_lib::error::check_ret_code(ret_code)?;
+                let ptr = core::ptr::NonNull::new(raw).ok_or(::ta_lib::error::Error::AllocErr)?;
                 let stream = Self { ptr };
                 Ok((
                     stream,
-                    crate::types::OutRange {
-                        begin: usize::try_from(out_begin).map_err(|_| crate::error::Error::BadParam)?,
-                        count: usize::try_from(out_count).map_err(|_| crate::error::Error::BadParam)?,
+                    ::ta_lib::types::OutRange {
+                        begin: usize::try_from(out_begin).map_err(|_| ::ta_lib::error::Error::BadParam)?,
+                        count: usize::try_from(out_count).map_err(|_| ::ta_lib::error::Error::BadParam)?,
                     },
                 ))
             }
@@ -379,17 +379,17 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream update fails.
-            pub fn update(&mut self, #(#in_names: f64),*) -> Result<#stream_val_ty, crate::error::Error> {
+            pub fn update(&mut self, #(#in_names: f64),*) -> Result<#stream_val_ty, ::ta_lib::error::Error> {
                 #(#stream_val_init)*
                 // SAFETY: `self.ptr` is a valid non-null stream pointer owned exclusively by `self`.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_update(
+                    ::ta_lib::sys::#c_update(
                         self.ptr.as_ptr(),
                         #(#in_names,)*
                         #(&raw mut #out_names,)*
                     )
                 };
-                crate::error::check_ret_code(ret_code)?;
+                ::ta_lib::error::check_ret_code(ret_code)?;
                 Ok(#stream_val_tuple)
             }
 
@@ -398,17 +398,17 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream peek fails.
-            pub fn peek(&self, #(#in_names: f64),*) -> Result<#stream_val_ty, crate::error::Error> {
+            pub fn peek(&self, #(#in_names: f64),*) -> Result<#stream_val_ty, ::ta_lib::error::Error> {
                 #(#stream_val_init)*
                 // SAFETY: `self.ptr` is valid and `TA_*_Peek` takes a const stream pointer without mutating state.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_peek(
+                    ::ta_lib::sys::#c_peek(
                         self.ptr.as_ptr(),
                         #(#in_names,)*
                         #(&raw mut #out_names,)*
                     )
                 };
-                crate::error::check_ret_code(ret_code)?;
+                ::ta_lib::error::check_ret_code(ret_code)?;
                 Ok(#stream_val_tuple)
             }
 
@@ -417,16 +417,16 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream value query fails.
-            pub fn value(&self) -> Result<#stream_val_ty, crate::error::Error> {
+            pub fn value(&self) -> Result<#stream_val_ty, ::ta_lib::error::Error> {
                 #(#stream_val_init)*
                 // SAFETY: `self.ptr` is valid and `TA_*_Value` reads the latest value into stack variables.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_value(
+                    ::ta_lib::sys::#c_value(
                         self.ptr.as_ptr(),
                         #(&raw mut #out_names,)*
                     )
                 };
-                crate::error::check_ret_code(ret_code)?;
+                ::ta_lib::error::check_ret_code(ret_code)?;
                 Ok(#stream_val_tuple)
             }
 
@@ -435,21 +435,21 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream out-range query fails.
-            pub fn out_range(&self) -> Result<crate::types::OutRange, crate::error::Error> {
+            pub fn out_range(&self) -> Result<::ta_lib::types::OutRange, ::ta_lib::error::Error> {
                 let mut out_begin: i32 = 0;
                 let mut out_count: i32 = 0;
                 // SAFETY: `self.ptr` is valid and `TA_*_OutRange` writes to stack integers.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_out_range(
+                    ::ta_lib::sys::#c_out_range(
                         self.ptr.as_ptr(),
                         &raw mut out_begin,
                         &raw mut out_count,
                     )
                 };
-                crate::error::check_ret_code(ret_code)?;
-                Ok(crate::types::OutRange {
-                    begin: usize::try_from(out_begin).map_err(|_| crate::error::Error::BadParam)?,
-                    count: usize::try_from(out_count).map_err(|_| crate::error::Error::BadParam)?,
+                ::ta_lib::error::check_ret_code(ret_code)?;
+                Ok(::ta_lib::types::OutRange {
+                    begin: usize::try_from(out_begin).map_err(|_| ::ta_lib::error::Error::BadParam)?,
+                    count: usize::try_from(out_count).map_err(|_| ::ta_lib::error::Error::BadParam)?,
                 })
             }
 
@@ -460,10 +460,10 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream advance fails.
-            pub fn advance(&mut self) -> Result<(), crate::error::Error> {
+            pub fn advance(&mut self) -> Result<(), ::ta_lib::error::Error> {
                 // SAFETY: `self.ptr` is valid and uniquely borrowed via `&mut self`.
-                let ret_code = unsafe { ta_lib_sys::#c_advance(self.ptr.as_ptr()) };
-                crate::error::check_ret_code(ret_code)
+                let ret_code = unsafe { ::ta_lib::sys::#c_advance(self.ptr.as_ptr()) };
+                ::ta_lib::error::check_ret_code(ret_code)
             }
 
             /// Deep-copy the stream state into a new independent stream handle.
@@ -471,14 +471,14 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if memory allocation fails in the C library.
-            pub fn try_clone(&self) -> Result<Self, crate::error::Error> {
-                let mut cloned: *mut ta_lib_sys::#c_stream_ty = core::ptr::null_mut();
+            pub fn try_clone(&self) -> Result<Self, ::ta_lib::error::Error> {
+                let mut cloned: *mut ::ta_lib::sys::#c_stream_ty = core::ptr::null_mut();
                 // SAFETY: `self.ptr` is valid and `TA_*_Clone` allocates a fresh copy into `cloned`.
                 let ret_code = unsafe {
-                    ta_lib_sys::#c_clone(self.ptr.as_ptr(), &raw mut cloned)
+                    ::ta_lib::sys::#c_clone(self.ptr.as_ptr(), &raw mut cloned)
                 };
-                crate::error::check_ret_code(ret_code)?;
-                let ptr = core::ptr::NonNull::new(cloned).ok_or(crate::error::Error::AllocErr)?;
+                ::ta_lib::error::check_ret_code(ret_code)?;
+                let ptr = core::ptr::NonNull::new(cloned).ok_or(::ta_lib::error::Error::AllocErr)?;
                 Ok(Self { ptr })
             }
         }
@@ -487,7 +487,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             fn drop(&mut self) {
                 // SAFETY: `self.ptr` was allocated by `TA_*_Open` / `OpenAndFill` / `Clone` and is freed once here.
                 unsafe {
-                    drop(ta_lib_sys::#c_close(self.ptr.as_ptr()));
+                    drop(::ta_lib::sys::#c_close(self.ptr.as_ptr()));
                 }
             }
         }

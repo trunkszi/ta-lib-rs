@@ -75,7 +75,7 @@ impl StreamModel {
         }
 
         let runtime = resolve_runtime_path(opts.crate_path.as_deref())?;
-        let serde_rename_all = parse_serde_container_rename_all(&input.attrs)?;
+        let serde_rename_all = parse_serde_str_attr(&input.attrs, "rename_all")?;
         let rename_all = opts.rename_all.or(serde_rename_all);
         if let Some(style) = rename_all.as_deref() {
             apply_rename("field_name", Some(style))?;
@@ -264,7 +264,7 @@ fn parse_member(
         .ident
         .clone()
         .ok_or_else(|| syn::Error::new(field.span(), "expected named field"))?;
-    let serde_rename = parse_serde_field_rename(&field.attrs)?;
+    let serde_rename = parse_serde_str_attr(&field.attrs, "rename")?;
     let column = match f_opts.rename.or(serde_rename) {
         Some(r) => r,
         None => apply_rename(&ident.unraw().to_string(), rename_all)?,
@@ -498,8 +498,8 @@ pub fn apply_rename(value: &str, style: Option<&str>) -> Result<String> {
     })
 }
 
-fn parse_serde_container_rename_all(attrs: &[Attribute]) -> Result<Option<String>> {
-    let mut rename_all = None;
+fn parse_serde_str_attr(attrs: &[Attribute], key: &str) -> Result<Option<String>> {
+    let mut found = None;
     for attr in attrs.iter().filter(|a| a.path().is_ident("serde")) {
         let Meta::List(list) = &attr.meta else {
             continue;
@@ -507,29 +507,12 @@ fn parse_serde_container_rename_all(attrs: &[Attribute]) -> Result<Option<String
         let metas: Punctuated<Meta, Token![,]> =
             list.parse_args_with(Punctuated::parse_terminated)?;
         for meta in metas {
-            if meta.path().is_ident("rename_all") && rename_all.is_none() {
-                rename_all = extract_lit_str(&meta);
+            if meta.path().is_ident(key) && found.is_none() {
+                found = extract_lit_str(&meta);
             }
         }
     }
-    Ok(rename_all)
-}
-
-fn parse_serde_field_rename(attrs: &[Attribute]) -> Result<Option<String>> {
-    let mut rename = None;
-    for attr in attrs.iter().filter(|a| a.path().is_ident("serde")) {
-        let Meta::List(list) = &attr.meta else {
-            continue;
-        };
-        let metas: Punctuated<Meta, Token![,]> =
-            list.parse_args_with(Punctuated::parse_terminated)?;
-        for meta in metas {
-            if meta.path().is_ident("rename") && rename.is_none() {
-                rename = extract_lit_str(&meta);
-            }
-        }
-    }
-    Ok(rename)
+    Ok(found)
 }
 
 fn extract_lit_str(meta: &Meta) -> Option<String> {

@@ -23,6 +23,19 @@ pub struct TaCallInput {
     pub outputs: Vec<Expr>,
 }
 
+fn parse_expr_section(content: ParseStream<'_>, stop_at_semi: bool) -> Result<Vec<Expr>> {
+    let mut items = Vec::new();
+    while !content.is_empty() && (!stop_at_semi || !content.peek(Token![;])) {
+        items.push(content.parse::<Expr>()?);
+        if content.peek(Token![,]) {
+            content.parse::<Token![,]>()?;
+        } else {
+            break;
+        }
+    }
+    Ok(items)
+}
+
 impl Parse for TaCallInput {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let fork = input.fork();
@@ -42,41 +55,19 @@ impl Parse for TaCallInput {
         let content;
         parenthesized!(content in input);
 
-        let mut inputs = Vec::new();
-        while !content.is_empty() && !content.peek(Token![;]) {
-            inputs.push(content.parse::<Expr>()?);
-            if content.peek(Token![,]) {
-                content.parse::<Token![,]>()?;
-            } else {
-                break;
-            }
-        }
-
-        let mut opts = Vec::new();
-        if content.peek(Token![;]) {
+        let inputs = parse_expr_section(&content, true)?;
+        let opts = if content.peek(Token![;]) {
             content.parse::<Token![;]>()?;
-            while !content.is_empty() && !content.peek(Token![;]) {
-                opts.push(content.parse::<Expr>()?);
-                if content.peek(Token![,]) {
-                    content.parse::<Token![,]>()?;
-                } else {
-                    break;
-                }
-            }
-        }
-
-        let mut outputs = Vec::new();
-        if content.peek(Token![;]) {
+            parse_expr_section(&content, true)?
+        } else {
+            Vec::new()
+        };
+        let outputs = if content.peek(Token![;]) {
             content.parse::<Token![;]>()?;
-            while !content.is_empty() {
-                outputs.push(content.parse::<Expr>()?);
-                if content.peek(Token![,]) {
-                    content.parse::<Token![,]>()?;
-                } else {
-                    break;
-                }
-            }
-        }
+            parse_expr_section(&content, false)?
+        } else {
+            Vec::new()
+        };
 
         if !content.is_empty() {
             return Err(content.error("unexpected token in `ta_call!` arguments"));
@@ -103,13 +94,22 @@ pub fn expand_ta_call(call: &TaCallInput) -> Result<TokenStream> {
         });
     }
 
-    let runtime = resolve_runtime_path(None)?;
+    let span = call.func.path.segments.last().unwrap().ident.span();
+    if !outputs.is_empty() {
+        return Err(syn::Error::new(
+            span,
+            "`ta_call!(padded: ...)` allocates its own output vector and does not accept `; \
+             output` arguments",
+        ));
+    }
     if inputs.is_empty() {
         return Err(syn::Error::new(
-            call.func.path.segments.last().unwrap().ident.span(),
+            span,
             "`ta_call!(padded: ...)` requires at least one input slice",
         ));
     }
+
+    let runtime = resolve_runtime_path(None)?;
     let last_seg = call.func.path.segments.last().expect("non-empty path");
     let fn_name = last_seg.ident.to_string();
     let base_name = fn_name.strip_suffix("_f32").unwrap_or(&fn_name);
@@ -134,6 +134,26 @@ pub fn expand_ta_call(call: &TaCallInput) -> Result<TokenStream> {
             OutKind::I32 => quote!(let mut #id: ::std::vec::Vec<i32> = vec![0_i32; __len];),
         })
         .collect();
+    let out_fixups: Vec<TokenStream> = kinds
+        .iter()
+        .zip(&out_ids)
+        .map(|(&kind, id)| {
+            let pad = match kind {
+                OutKind::F64 => quote!(f64::NAN),
+                OutKind::I32 => quote!(0_i32),
+            };
+            quote! {
+                if __r.begin != __lb && __r.count > 0 {
+                    #id.copy_within(__lb..(__lb + __r.count), __r.begin);
+                    #id[..__r.begin].fill(#pad);
+                }
+                let __valid_end = (__r.begin + __r.count).min(__len);
+                if __valid_end < __len {
+                    #id[__valid_end..].fill(#pad);
+                }
+            }
+        })
+        .collect();
     let ret_expr = if out_ids.len() == 1 {
         let id = &out_ids[0];
         quote!(#id)
@@ -153,7 +173,8 @@ pub fn expand_ta_call(call: &TaCallInput) -> Result<TokenStream> {
             let __lb = #fn_lb(#(#opts),*)?;
             #(#out_decls)*
             if __len > __lb {
-                let _ = #fn_into(__in0, #(#rest_ins,)* #(#opts,)* #(&mut #out_ids[__lb..]),*)?;
+                let __r = #fn_into(__in0, #(#rest_ins,)* #(#opts,)* #(&mut #out_ids[__lb..]),*)?;
+                #(#out_fixups)*
             }
             Ok(#ret_expr)
         })()
@@ -221,6 +242,20 @@ impl Parse for BatchAlignedInput {
     }
 }
 
+fn emit_trim_aligned_vec(ident: &Ident, begin_id: &Ident) -> TokenStream {
+    quote! {
+        let __skip = __max_begin.saturating_sub(#begin_id);
+        if __skip >= #ident.len() {
+            #ident.clear();
+        } else if __skip > 0 {
+            drop(#ident.drain(0..__skip));
+        }
+        if #ident.len() < __aligned_count {
+            __aligned_count = #ident.len();
+        }
+    }
+}
+
 pub fn expand_batch_aligned(batch: &BatchAlignedInput) -> Result<TokenStream> {
     let runtime = resolve_runtime_path(None)?;
 
@@ -247,34 +282,14 @@ pub fn expand_batch_aligned(batch: &BatchAlignedInput) -> Result<TokenStream> {
                 eval_stmts.push(quote! {
                     let (mut #ident, #begin_id) = (#call_ts)?;
                 });
-                trim_stmts.push(quote! {
-                    let __skip = __max_begin.saturating_sub(#begin_id);
-                    if __skip >= #ident.len() {
-                        #ident.clear();
-                    } else if __skip > 0 {
-                        drop(#ident.drain(0..__skip));
-                    }
-                    if #ident.len() < __aligned_count {
-                        __aligned_count = #ident.len();
-                    }
-                });
+                trim_stmts.push(emit_trim_aligned_vec(ident, &begin_id));
             }
             BatchFieldBinding::Tuple(idents) => {
                 for ident in idents {
                     let ty_param = format_ident!("__T{}", all_fields.len());
                     type_params.push(ty_param);
                     all_fields.push(ident.clone());
-                    trim_stmts.push(quote! {
-                        let __skip = __max_begin.saturating_sub(#begin_id);
-                        if __skip >= #ident.len() {
-                            #ident.clear();
-                        } else if __skip > 0 {
-                            drop(#ident.drain(0..__skip));
-                        }
-                        if #ident.len() < __aligned_count {
-                            __aligned_count = #ident.len();
-                        }
-                    });
+                    trim_stmts.push(emit_trim_aligned_vec(ident, &begin_id));
                 }
                 eval_stmts.push(quote! {
                     let (#(mut #idents,)* #begin_id) = (#call_ts)?;
@@ -483,18 +498,14 @@ pub fn expand_dyn_call(dyn_call: &DynCallInput) -> Result<TokenStream> {
     let range_stmt = if let Some(r_expr) = &dyn_call.range {
         quote! {
             let __range = #r_expr;
-            let (__start, __end) = (
-                *::core::ops::RangeBounds::start_bound(&__range),
-                *::core::ops::RangeBounds::end_bound(&__range),
-            );
-            let __start_idx = match __start {
-                ::core::ops::Bound::Included(v) => v,
-                ::core::ops::Bound::Excluded(v) => v + 1,
+            let __start_idx: usize = match ::core::ops::RangeBounds::start_bound(&__range) {
+                ::core::ops::Bound::Included(&v) => v,
+                ::core::ops::Bound::Excluded(&v) => v.checked_add(1).ok_or(#runtime::Error::BadParam)?,
                 ::core::ops::Bound::Unbounded => 0,
             };
-            let __end_idx = match __end {
-                ::core::ops::Bound::Included(v) => v,
-                ::core::ops::Bound::Excluded(v) => v.saturating_sub(1),
+            let __end_idx: usize = match ::core::ops::RangeBounds::end_bound(&__range) {
+                ::core::ops::Bound::Included(&v) => v,
+                ::core::ops::Bound::Excluded(&v) => v.checked_sub(1).ok_or(#runtime::Error::BadParam)?,
                 ::core::ops::Bound::Unbounded => return Err(#runtime::Error::BadParam),
             };
         }
@@ -511,18 +522,41 @@ pub fn expand_dyn_call(dyn_call: &DynCallInput) -> Result<TokenStream> {
             let __start_idx = 0usize;
             let __end_idx = __len - 1;
         }
+    } else if let Some(first_price) = dyn_call.price_inputs.first() {
+        quote! {
+            let (__po, __ph, __pl, __pc, __pv, __poi): (
+                ::core::option::Option<&[f64]>,
+                ::core::option::Option<&[f64]>,
+                ::core::option::Option<&[f64]>,
+                ::core::option::Option<&[f64]>,
+                ::core::option::Option<&[f64]>,
+                ::core::option::Option<&[f64]>,
+            ) = #first_price;
+            let __len = __po
+                .or(__ph)
+                .or(__pl)
+                .or(__pc)
+                .or(__pv)
+                .or(__poi)
+                .map_or(0, <[f64]>::len);
+            if __len == 0 {
+                return Err(#runtime::Error::EmptyInput);
+            }
+            let __start_idx = 0usize;
+            let __end_idx = __len - 1;
+        }
     } else {
         return Err(syn::Error::new(
             dyn_call.indicator.span(),
-            "`range: start..=end` is required when only `price_inputs` are supplied",
+            "`range: start..=end` is required when no inputs are supplied",
         ));
     };
 
     Ok(quote! {
         (|| -> ::core::result::Result<#runtime::OutRange, #runtime::Error> {
             #range_stmt
-            let __handle = #runtime::FuncHandle::get(#name)?;
-            let mut __holder = #runtime::ParamHolder::new(&__handle)?;
+            let __handle = #runtime::abstract_api::FuncHandle::get(#name)?;
+            let mut __holder = #runtime::abstract_api::ParamHolder::new(&__handle)?;
             #(#set_stmts)*
             __holder.call(__start_idx, __end_idx)
         })()

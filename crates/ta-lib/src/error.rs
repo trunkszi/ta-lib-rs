@@ -5,7 +5,7 @@ use core::ffi::CStr;
 use ta_lib_sys as sys;
 
 /// Detailed information associated with a [`sys::TA_RetCode`].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RetCodeInfo {
     /// Symbolic enum constant name (e.g. `"TA_BAD_PARAM"`).
     pub enum_str: String,

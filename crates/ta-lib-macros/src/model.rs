@@ -1,7 +1,9 @@
 //! AST model and parser for `ta_indicators!` declarations.
 
+use heck::{ToShoutySnakeCase, ToUpperCamelCase};
 use syn::{
     Attribute, Ident, Result, Token, braced, bracketed,
+    ext::IdentExt,
     parse::{Parse, ParseStream},
     punctuated::Punctuated,
 };
@@ -49,10 +51,21 @@ impl Parse for IndicatorSpec {
     fn parse(input: ParseStream<'_>) -> Result<Self> {
         let attrs = input.call(Attribute::parse_outer)?;
         let fn_name: Ident = input.parse()?;
-        input.parse::<Token![=>]>()?;
-        let c_ident: Ident = input.parse()?;
-        input.parse::<Token![,]>()?;
-        let stream_ident: Ident = input.parse()?;
+        let (c_ident, stream_ident) = if input.peek(Token![=>]) {
+            input.parse::<Token![=>]>()?;
+            let c_ident: Ident = input.parse()?;
+            input.parse::<Token![,]>()?;
+            let stream_ident: Ident = input.parse()?;
+            (c_ident, stream_ident)
+        } else {
+            let base = fn_name.unraw().to_string();
+            let c_ident = Ident::new(&base.to_shouty_snake_case(), fn_name.span());
+            let stream_ident = Ident::new(
+                &format!("{}Stream", base.to_upper_camel_case()),
+                fn_name.span(),
+            );
+            (c_ident, stream_ident)
+        };
 
         let content;
         braced!(content in input);

@@ -1,10 +1,11 @@
 # ta-lib-rs
 
 Rust 2024 bindings for the upstream TA-Lib C library, covering all **237
-indicators** in its 10 function groups on the default `main` branch (or **201
-indicators** when targeting the latest stable release tag via the `release-tag`
-Cargo feature). The workspace provides typed batch and streaming APIs, plus a
-reflective Abstract API for selecting indicators at runtime.
+indicators** in its 10 function groups under the default `pre-release` Cargo
+feature (tracking upstream `main`), or **201 indicators** under the `stable`
+Cargo feature (tracking the latest stable release tag `v0.8.1`). The workspace
+provides typed batch and streaming APIs, plus a reflective Abstract API for
+selecting indicators at runtime.
 
 ## Workspace architecture
 
@@ -16,7 +17,7 @@ reflective Abstract API for selecting indicators at runtime.
 
 All indicators have typed batch and streaming bindings:
 
-| Function group | `main` (default) | `release-tag` (`v0.8.1`) |
+| Function group | `pre-release` (`main`, default) | `stable` (`v0.8.1`) |
 | --- | ---: | ---: |
 | Cycle Indicators | 8 | 5 |
 | Math Operators | 12 | 12 |
@@ -44,11 +45,11 @@ For a local checkout, add the high-level crate to your application's manifest:
 
 ```toml
 [dependencies]
-# Default: tracks upstream `main` branch (237 indicators, cached in `target/ta-lib-main`)
+# Default (`pre-release` feature): tracks upstream `main` branch (237 indicators, cached in `target/ta-lib-main`)
 ta-lib = { path = "/path/to/ta-lib-rs/crates/ta-lib" }
 
-# Optional: track the latest upstream `v*` release tag (e.g. `v0.8.1`, 201 indicators)
-# ta-lib = { path = "/path/to/ta-lib-rs/crates/ta-lib", features = ["release-tag"] }
+# Optional (`stable` feature): tracks the latest upstream `v*` release tag (e.g. `v0.8.1`, 201 indicators)
+# ta-lib = { path = "/path/to/ta-lib-rs/crates/ta-lib", default-features = false, features = ["stable"] }
 ```
 
 `ta-lib-sys` disables shared-library builds and development tools and enables a
@@ -56,14 +57,15 @@ position-independent static C library. It does not require a separately installe
 TA-Lib shared library or libclang/bindgen. On Unix, it also links the system math
 library.
 
-By default, `build.rs` automatically clones the upstream `main` branch from
-`https://github.com/TA-Lib/ta-lib.git` into Cargo's `target/ta-lib-main`
-directory and compiles it statically. Enabling `--features release-tag` resolves
-the latest `v*` release tag instead and caches it under `target/ta-lib-<tag>`:
+By default (`pre-release` feature), `build.rs` automatically clones the upstream
+`main` branch from `https://github.com/TA-Lib/ta-lib.git` into Cargo's
+`target/ta-lib-main` directory and compiles it statically. Enabling the `stable`
+feature resolves the latest `v*` release tag instead and caches it under
+`target/ta-lib-<tag>`:
 
 ```sh
 cargo build --workspace
-cargo build --workspace --features release-tag
+cargo build -p ta-lib --no-default-features --features stable
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
@@ -218,7 +220,7 @@ use ta_lib::abstract_api::{FuncHandle, InputParameterType, ParamHolder};
 fn main() -> Result<(), Error> {
     initialize()?;
     assert_eq!(abstract_api::groups()?.len(), 10);
-    let expected = if cfg!(feature = "release-tag") { 201 } else { 237 };
+    let expected = if cfg!(feature = "stable") { 201 } else { 237 };
     assert_eq!(abstract_api::all_functions()?.len(), expected);
     let handle = FuncHandle::get("SMA")?;
     let info = handle.info()?;

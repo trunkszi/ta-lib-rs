@@ -14,16 +14,12 @@ const REPOSITORY: &str = "https://github.com/TA-Lib/ta-lib.git";
 const DEFAULT_BRANCH: &str = "main";
 const DEFAULT_TAG: &str = "v0.8.1";
 
-const EXPECTED_MIN_FUNCTIONS: usize = if cfg!(feature = "release-tag") {
+const EXPECTED_MIN_FUNCTIONS: usize = if cfg!(feature = "stable") {
     2_451
 } else {
     3_122
 };
-const EXPECTED_MIN_STREAMS: usize = if cfg!(feature = "release-tag") {
-    201
-} else {
-    237
-};
+const EXPECTED_MIN_STREAMS: usize = if cfg!(feature = "stable") { 201 } else { 237 };
 
 fn is_source_tree(path: &Path) -> bool {
     path.join("CMakeLists.txt").is_file()
@@ -224,7 +220,7 @@ fn resolve_source(manifest: &Path, out_dir: &Path) -> PathBuf {
 
     let target_dir = target_root(manifest, out_dir);
     fs::create_dir_all(&target_dir).expect("create target directory");
-    if cfg!(feature = "release-tag") {
+    if cfg!(feature = "stable") {
         let tag = resolve_latest_release_tag(&target_dir);
         clone_into_target(&target_dir, &tag, true)
     } else {
@@ -378,6 +374,12 @@ fn main() {
     println!("cargo:rerun-if-env-changed=TA_LIB_DIR");
     println!("cargo:rerun-if-changed=build.rs");
 
+    let pointer_width = env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap_or_default();
+    assert_eq!(
+        pointer_width, "64",
+        "ta-lib-sys requires a 64-bit target (found pointer width: {pointer_width})"
+    );
+
     let manifest = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
     let out_dir = PathBuf::from(env::var("OUT_DIR").expect("OUT_DIR"));
     let source = resolve_source(&manifest, &out_dir);
@@ -387,24 +389,32 @@ fn main() {
     );
     generate_bindings(&source, &out_dir);
 
-    let install_dir = cmake::Config::new(&source)
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
+    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap_or_default();
+    let mut cmake_cfg = cmake::Config::new(&source);
+    cmake_cfg
         .define("BUILD_SHARED_LIBS", "OFF")
         .define("BUILD_STATIC_LIBS", "ON")
         .define("BUILD_DEV_TOOLS", "OFF")
         .define("BUILD_BENCHMARKS", "OFF")
         .define("CMAKE_POSITION_INDEPENDENT_CODE", "ON")
         .define("CMAKE_INSTALL_LIBDIR", "lib")
-        .profile("Release")
-        .build();
-
+        .profile("Release");
+    if target_os == "windows" {
+        let win_platform = if target_arch == "aarch64" {
+            "arm64"
+        } else {
+            "x64"
+        };
+        cmake_cfg.env("Platform", win_platform);
+    }
+    let install_dir = cmake_cfg.build();
     for subdir in ["lib", "lib64", "build"] {
         let candidate = install_dir.join(subdir);
         if candidate.is_dir() {
             println!("cargo:rustc-link-search=native={}", candidate.display());
         }
     }
-
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os == "windows" {
         if install_dir.join("lib/ta-lib-static.lib").is_file() {
             println!("cargo:rustc-link-lib=static=ta-lib-static");

@@ -95,7 +95,7 @@ pub fn true_range(
     trange(high, low, close)
 }
 
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 crate::ta_indicators! {
     /// Compute BBW (Bollinger BandWidth).
     bbw => BBW, BbwStream {

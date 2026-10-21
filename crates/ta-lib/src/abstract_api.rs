@@ -699,7 +699,7 @@ impl<'a> ParamHolder<'a> {
     /// Return the display shift for output `index` (`TA_GetDisplayShift`).
     /// # Errors
     /// Returns an [`Error`] if the function provides no display shift for `index`.
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     pub fn display_shift(&self, index: u32) -> Result<i32, Error> {
         let mut shift: i32 = 0;
         // SAFETY: `self.raw` is a live holder and `shift` is a valid out-pointer.

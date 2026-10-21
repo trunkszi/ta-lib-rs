@@ -376,7 +376,7 @@ pub fn positive_directional_indicator(
     plus_di(high, low, close, time_period)
 }
 
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 crate::ta_indicators! {
     /// Compute ASI (Wilder Accumulative Swing Index).
     asi => ASI, AsiStream {

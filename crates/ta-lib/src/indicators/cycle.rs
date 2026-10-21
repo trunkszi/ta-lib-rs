@@ -38,7 +38,7 @@ crate::ta_indicators! {
 
 }
 
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 crate::ta_indicators! {
     /// Compute SWAK_2PHP (Swiss Army Knife - Two-Pole High-Pass Filter).
     swak_2php => SWAK_2PHP, Swak2phpStream {
@@ -78,12 +78,12 @@ mod tests {
 
     check_indicator!(ht_trendmode_batch_and_stream, ht_trendmode, ht_trendmode_f32, ht_trendmode_into, ht_trendmode_f32_into, ht_trendmode_lookback, ht_trendmode_display_shift, HtTrendmodeStream, [inreal], [], [outinteger: i32: 0], |v: i32| vec![v as f64]);
 
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     check_indicator!(swak_2php_batch_and_stream, swak_2php, swak_2php_f32, swak_2php_into, swak_2php_f32_into, swak_2php_lookback, swak_2php_display_shift, Swak2phpStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     check_indicator!(swak_bp_batch_and_stream, swak_bp, swak_bp_f32, swak_bp_into, swak_bp_f32_into, swak_bp_lookback, swak_bp_display_shift, SwakBpStream, [inreal], [Some(8), Some(0.2)], [outreal: f64: 0], |v: f64| vec![v]);
 
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     check_indicator!(swak_hp_batch_and_stream, swak_hp, swak_hp_f32, swak_hp_into, swak_hp_f32_into, swak_hp_lookback, swak_hp_display_shift, SwakHpStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 }

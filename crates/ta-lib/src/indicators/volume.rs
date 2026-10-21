@@ -101,7 +101,7 @@ pub fn on_balance_volume(
     obv(inreal, volume)
 }
 
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 crate::ta_indicators! {
     /// Compute EMV (Arms Ease of Movement).
     emv => EMV, EmvStream {

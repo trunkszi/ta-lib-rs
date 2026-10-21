@@ -71,7 +71,7 @@ macro_rules! check_indicator {
             let begin = expected.begin_index();
             assert_eq!(begin, warmup);
             assert!(begin < data.len() - 1);
-            #[cfg(not(feature = "release-tag"))]
+            #[cfg(not(feature = "stable"))]
             {
                 let display_shift = |idx| $_shift($($opt,)* idx).unwrap();
                 $(assert_eq!(display_shift($idx), 0);)+

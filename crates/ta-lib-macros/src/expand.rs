@@ -126,7 +126,7 @@ fn emit_metadata(spec: &IndicatorSpec) -> TokenStream {
         /// Return the chart display shift for a zero-based output index.
         /// # Errors
         /// Returns `BadParam` for invalid parameters or output indices.
-        #[cfg(not(feature = "release-tag"))]
+        #[cfg(not(feature = "stable"))]
         pub fn #fn_display_shift(#(#opt_params_decl,)* output_idx: usize) -> Result<i32, crate::error::Error> {
             #(#opt_c_lets)*
             let index = i32::try_from(output_idx).map_err(|_| crate::error::Error::BadParam)?;

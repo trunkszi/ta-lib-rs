@@ -45,10 +45,10 @@ pub enum MAType {
     /// Wilder's Running Moving Average (`TA_MAType_RMA`).
     Rma = sys::TA_MAType::TA_MAType_RMA as u32,
     /// Variable Index Dynamic Average (`TA_MAType_VIDYA`).
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     Vidya = sys::TA_MAType::TA_MAType_VIDYA as u32,
     /// Arnaud Legoux Moving Average (`TA_MAType_ALMA`).
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     Alma = sys::TA_MAType::TA_MAType_ALMA as u32,
 }
 
@@ -94,9 +94,9 @@ impl From<MAType> for sys::TA_MAType {
             MAType::Default => Self::TA_MAType_DEFAULT,
             MAType::Zlema => Self::TA_MAType_ZLEMA,
             MAType::Rma => Self::TA_MAType_RMA,
-            #[cfg(not(feature = "release-tag"))]
+            #[cfg(not(feature = "stable"))]
             MAType::Vidya => Self::TA_MAType_VIDYA,
-            #[cfg(not(feature = "release-tag"))]
+            #[cfg(not(feature = "stable"))]
             MAType::Alma => Self::TA_MAType_ALMA,
         }
     }
@@ -119,9 +119,9 @@ impl From<sys::TA_MAType> for MAType {
             sys::TA_MAType::TA_MAType_DEFAULT => Self::Default,
             sys::TA_MAType::TA_MAType_ZLEMA => Self::Zlema,
             sys::TA_MAType::TA_MAType_RMA => Self::Rma,
-            #[cfg(not(feature = "release-tag"))]
+            #[cfg(not(feature = "stable"))]
             sys::TA_MAType::TA_MAType_VIDYA => Self::Vidya,
-            #[cfg(not(feature = "release-tag"))]
+            #[cfg(not(feature = "stable"))]
             sys::TA_MAType::TA_MAType_ALMA => Self::Alma,
         }
     }

@@ -80,7 +80,7 @@ crate::ta_indicators! {
 
 }
 
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 crate::ta_indicators! {
     /// Compute KURTOSIS (Rolling Excess Kurtosis).
     kurtosis => KURTOSIS, KurtosisStream {
@@ -138,9 +138,9 @@ mod tests {
         assert_eq!(correl(&input, &input, Some(3)).unwrap().0, vec![1.0; 3]);
     }
 
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     check_indicator!(kurtosis_batch_and_stream, kurtosis, kurtosis_f32, kurtosis_into, kurtosis_f32_into, kurtosis_lookback, kurtosis_display_shift, KurtosisStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 
-    #[cfg(not(feature = "release-tag"))]
+    #[cfg(not(feature = "stable"))]
     check_indicator!(median_batch_and_stream, median, median_f32, median_into, median_f32_into, median_lookback, median_display_shift, MedianStream, [inreal], [Some(8)], [outreal: f64: 0], |v: f64| vec![v]);
 }

@@ -226,7 +226,7 @@ pub fn bollinger_bands(
     )
 }
 
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 crate::ta_indicators! {
     /// Compute ALMA (Arnaud Legoux Moving Average).
     alma => ALMA, AlmaStream {

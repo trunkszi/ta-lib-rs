@@ -30,11 +30,7 @@ fn catalog_exposes_all_groups_and_functions() {
     assert!(groups.iter().any(|g| g == "Overlap Studies"));
     assert!(groups.iter().any(|g| g == "Momentum Indicators"));
     let mut functions = all_functions().expect("function catalog");
-    let expected_count = if cfg!(feature = "release-tag") {
-        201
-    } else {
-        237
-    };
+    let expected_count = if cfg!(feature = "stable") { 201 } else { 237 };
     assert_eq!(functions.len(), expected_count);
     assert!(functions.iter().any(|name| name == "SMA"));
     let overlap = functions_in_group("Overlap Studies").expect("overlap");
@@ -315,7 +311,7 @@ fn set_output_integer_matches_static_maxindex() {
 }
 
 /// Display shift is zero for SMA, `kijun` for the Ichimoku spans, and errors out of range.
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 #[test]
 fn display_shift_reports_native_placement() {
     init();

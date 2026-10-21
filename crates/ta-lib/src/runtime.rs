@@ -209,7 +209,7 @@ pub fn version_extra() -> &'static str {
 /// # Errors
 ///
 /// Returns an [`Error`] if `key` contains an interior NUL byte or is unknown to TA-Lib.
-#[cfg(not(feature = "release-tag"))]
+#[cfg(not(feature = "stable"))]
 pub fn runtime_info(key: &str) -> Result<i32, Error> {
     let _state = configured_runtime()?;
     let c_key = std::ffi::CString::new(key).map_err(|_| Error::InteriorNul)?;

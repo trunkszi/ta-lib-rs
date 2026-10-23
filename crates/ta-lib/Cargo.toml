@@ -1,0 +1,28 @@
+[package]
+name = "ta-lib"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Safe, ergonomic Rust wrapper for the latest upstream TA-Lib C library"
+
+[lib]
+bench = false
+
+[features]
+default = ["pre-release"]
+pre-release = ["ta-lib-sys/pre-release"]
+stable = ["ta-lib-sys/stable"]
+
+[dependencies]
+ta-lib-sys = { workspace = true }
+ta-lib-macros = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+sonic-rs = { workspace = true }
+
+[lints]
+workspace = true

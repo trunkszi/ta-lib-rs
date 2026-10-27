@@ -13,6 +13,7 @@ license = "BSD-3-Clause"
 repository = "https://github.com/trunkszi/ta-lib-rs"
 
 [workspace.dependencies]
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
 ta-lib-sys = { path = "crates/ta-lib-sys" }
 ta-lib-macros = { path = "crates/ta-lib-macros" }
 cmake = { version = "0.1" }

@@ -22,7 +22,13 @@ anyhow = { workspace = true }
 serde = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 sonic-rs = { workspace = true }
 
 [lints]
 workspace = true
+
+[[bench]]
+name = "talib_hotpath_bench"
+harness = false
+required-features = ["pre-release"]

@@ -7,6 +7,9 @@ repository.workspace = true
 description = "Static C build and FFI bindings for the latest upstream TA-Lib"
 links = "ta_lib"
 
+[lib]
+bench = false
+
 [features]
 default = ["pre-release"]
 pre-release = []

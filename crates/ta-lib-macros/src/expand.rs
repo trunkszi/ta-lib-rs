@@ -379,6 +379,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream update fails.
+            #[inline]
             pub fn update(&mut self, #(#in_names: f64),*) -> Result<#stream_val_ty, ::ta_lib::error::Error> {
                 #(#stream_val_init)*
                 // SAFETY: `self.ptr` is a valid non-null stream pointer owned exclusively by `self`.
@@ -389,7 +390,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                         #(&raw mut #out_names,)*
                     )
                 };
-                ::ta_lib::error::check_ret_code(ret_code)?;
+                if ret_code != ::ta_lib::sys::TA_RetCode::TA_SUCCESS { ::ta_lib::error::check_ret_code(ret_code)?; }
                 Ok(#stream_val_tuple)
             }
 
@@ -398,6 +399,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream peek fails.
+            #[inline]
             pub fn peek(&self, #(#in_names: f64),*) -> Result<#stream_val_ty, ::ta_lib::error::Error> {
                 #(#stream_val_init)*
                 // SAFETY: `self.ptr` is valid and `TA_*_Peek` takes a const stream pointer without mutating state.
@@ -408,7 +410,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                         #(&raw mut #out_names,)*
                     )
                 };
-                ::ta_lib::error::check_ret_code(ret_code)?;
+                if ret_code != ::ta_lib::sys::TA_RetCode::TA_SUCCESS { ::ta_lib::error::check_ret_code(ret_code)?; }
                 Ok(#stream_val_tuple)
             }
 
@@ -417,6 +419,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream value query fails.
+            #[inline]
             pub fn value(&self) -> Result<#stream_val_ty, ::ta_lib::error::Error> {
                 #(#stream_val_init)*
                 // SAFETY: `self.ptr` is valid and `TA_*_Value` reads the latest value into stack variables.
@@ -426,7 +429,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                         #(&raw mut #out_names,)*
                     )
                 };
-                ::ta_lib::error::check_ret_code(ret_code)?;
+                if ret_code != ::ta_lib::sys::TA_RetCode::TA_SUCCESS { ::ta_lib::error::check_ret_code(ret_code)?; }
                 Ok(#stream_val_tuple)
             }
 
@@ -435,6 +438,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream out-range query fails.
+            #[inline]
             pub fn out_range(&self) -> Result<::ta_lib::types::OutRange, ::ta_lib::error::Error> {
                 let mut out_begin: i32 = 0;
                 let mut out_count: i32 = 0;
@@ -446,7 +450,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
                         &raw mut out_count,
                     )
                 };
-                ::ta_lib::error::check_ret_code(ret_code)?;
+                if ret_code != ::ta_lib::sys::TA_RetCode::TA_SUCCESS { ::ta_lib::error::check_ret_code(ret_code)?; }
                 Ok(::ta_lib::types::OutRange {
                     begin: usize::try_from(out_begin).map_err(|_| ::ta_lib::error::Error::BadParam)?,
                     count: usize::try_from(out_count).map_err(|_| ::ta_lib::error::Error::BadParam)?,
@@ -460,6 +464,7 @@ fn emit_stream(spec: &IndicatorSpec) -> TokenStream {
             /// # Errors
             ///
             /// Returns an error if the underlying C stream advance fails.
+            #[inline]
             pub fn advance(&mut self) -> Result<(), ::ta_lib::error::Error> {
                 // SAFETY: `self.ptr` is valid and uniquely borrowed via `&mut self`.
                 let ret_code = unsafe { ::ta_lib::sys::#c_advance(self.ptr.as_ptr()) };

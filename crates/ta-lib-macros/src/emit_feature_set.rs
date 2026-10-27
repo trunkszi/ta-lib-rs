@@ -687,6 +687,7 @@ fn emit_stream(model: &StreamModel) -> TokenStream {
             /// # Errors
             /// Returns an error if any underlying C stream update fails.
             #[allow(clippy::too_many_arguments)]
+            #[inline]
             pub fn update(
                 &mut self,
                 #(#inputs: f64),*
@@ -698,6 +699,7 @@ fn emit_stream(model: &StreamModel) -> TokenStream {
             /// # Errors
             /// Returns an error if any underlying C stream update fails.
             #[allow(clippy::too_many_arguments)]
+            #[inline]
             pub fn next(
                 &mut self,
                 #(#inputs: f64),*
@@ -709,6 +711,7 @@ fn emit_stream(model: &StreamModel) -> TokenStream {
             /// # Errors
             /// Returns an error if any underlying C stream peek fails.
             #[allow(clippy::too_many_arguments)]
+            #[inline]
             pub fn peek(
                 &self,
                 #(#inputs: f64),*
@@ -719,6 +722,7 @@ fn emit_stream(model: &StreamModel) -> TokenStream {
             /// Read the most recently committed snapshot without advancing any member stream.
             /// # Errors
             /// Returns an error if any underlying C stream value query fails.
+            #[inline]
             pub fn value(&self) -> ::core::result::Result<#ident, #runtime::Error> {
                 Ok(#ident { #(#value_calls),* })
             }

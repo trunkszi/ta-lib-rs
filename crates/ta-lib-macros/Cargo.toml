@@ -7,6 +7,7 @@ repository.workspace = true
 description = "Procedural macros for generating safe TA-Lib batch and streaming wrappers"
 
 [lib]
+bench = false
 proc-macro = true
 
 [dependencies]
